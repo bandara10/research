@@ -11,3 +11,4 @@ Or, if you want to rotate it alpha degrees from the x-axis:
   
   x <- x0 + a * cos(theta) * cos(alpha) - b * sin(theta) * sin(alpha)
 y <- y0 + a * cos(theta) * sin(alpha) + b * sin(theta) * cos(alpha)
+ # testing git hub
