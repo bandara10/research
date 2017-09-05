@@ -231,5 +231,4 @@ for(i in 1:nCol){
   }
 }
 #####
-Dd<-residuals(Detection.model)
-plot(density(Dd))
+
