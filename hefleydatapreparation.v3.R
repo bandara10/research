@@ -12,39 +12,43 @@ setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack"
 
 myfullstack.a <- list.files(pattern="\\.tif") 
 myfullstack = stack(myfullstack.a)
-#check the coliniarity of variables 
-#vif(myfullstack)# check for coliniarity
-#vifstep(myfullstack, th=10) # select variables which have VIF less than 10.
+
 #### Step 2: import koala .csv data from the full study land region. Full square study are consists of land and sea. ####
+
 hefleydata <- read.csv("hefley_fishnet_rastermatch2011.csv", header = TRUE) # centroids for full study area as some sros are required.
 names(hefleydata)
 # get only coordinates from dataset.
 hefleydata.s <- hefleydata[c("x","y")]
+
 #### Step 3:  extract variables from raster anad combine wth hefleydata, presence and group varibels.####
 myFD3 = cbind(hefleydata.s,raster::extract(myfullstack,hefleydata.s))
 # get presence and group vriables
 myFD6 = cbind(myFD3,hefleydata [,6:7]) # get presence and group data. 
 myFD6 = na.omit(myFD6) # remove all NA valuves
+
 #### Step 4: select presence and abnsences data and combine with. #### 
 ZTGLM.myFD6=myFD6[which(myFD6$presence==1),] # select presence data. THis will be reorganised as 0 and 1 later.
 ZTGLM.myFD7=myFD6[which(myFD6$presence==0),] # select all absence data 
+
 #####Step 6:slect only 1000 absences (monticarlo points as in hefleys method??)####
 ZTGLM.myFD8 <- sample(seq_len(nrow(ZTGLM.myFD7)), size = 1000,replace=FALSE)#select only 1000 absences use for ipp.data
 ZTGLM.myFD9 <- ZTGLM.myFD7[ZTGLM.myFD8, ] #x.int data frame now
 #This is  similar to hefley`s IWLR data set.
 ZTGLM.myFD10=rbind(ZTGLM.myFD6,ZTGLM.myFD9) 
+
 ##### Step 7: now take a random sample of 80 and assign detected 1 non detected 0.####
 train <- sample(seq_len(nrow(ZTGLM.myFD6)), size = 80,replace=FALSE)
 detected <- ZTGLM.myFD6[train, ]
 notdetected <- ZTGLM.myFD6[-train,] 
 #not detected assigned valuve 0
 notdetected$presence<- 0
-##### Step 8: Create the final data sets for the analysis####
+
 ##### Step 8: Create the final data sets for the analysis####
 Detection.data= rbind(detected,notdetected) 
 #glimpse(Detection.data, n=10)
 IPP.data=rbind(detected, ZTGLM.myFD9) #IPP.data comes from detected data plus no koalas data from myFD6.
 ZTGLM.data=(detected)##ZTGLM.data# get the 80 rows selected.
+
 ##### Step 9:  analysis without detection correction factor#######
 IPP.ignored=glm(presence~s3_unclassified_dist,family="binomial",weights=10000^(1-presence),data=IPP.data) # IPP.data2 added.
 summary(IPP.ignored)
@@ -69,12 +73,14 @@ Detection.model=glm(presence~ distance_pedestrian+s1_residential_dist+distance_t
 
 summary(Detection.model)
 #confint(Detection.model); cov2cor(vcov(Detection.model))
+
 #####Step 4 - Estimate the probability of detection for each presence-only location.####
 p.det=ilogit(predict(Detection.model,new=ZTGLM.data))# chnaged myD to ZTGLM.data length =461. 3 variables 
 hist(p.det, breaks=70)
 IPP.data$p.det=c(p.det,rep(1,length(ZTGLM.myFD8)))
 #IPP.data$p.det=p.det   # IPP.data number of obserarions=1461
 ZTGLM.data$p.det=p.det
+
 ######Step 5 - Fit an inhomogeneous Poisson point process  that weights the log-likelihood by 1/p.det . ####
 #use step function here then use significant variable in the next model. or else go to line 79. I asume this is correct way to do it.
 IPP.corrected.1= step(glm(presence~twi+tpo+temp +aspect+awc+clay+elev+fpc+habit2pc+hpop+
@@ -85,6 +91,7 @@ summary(IPP.corrected.1)
 IPP.corrected= glm(presence~twi+tpo+temp+aspect+elev+habit2pc+hpop+lot_density+sbd,
                         family="binomial",weights=(1/p.det)*10000^(1-presence),data=IPP.data)
 summary(IPP.corrected)
+
 ####Step 6 - Fit an zero-truncated Poisson generalized linear model that weights the log-likelihood by 1/p.det.####
 ZTGLM.corrected.1 = vglm(group~twi+tpo+temp+aspect+elev+habit2pc+hpop+lot_density+sbd
                      ,weights=1/p.det,family="pospoisson",data=ZTGLM.data)
@@ -133,6 +140,7 @@ tpnbs=function()	{
                        weights=1/p.det,family="pospoisson",data=ZTGLM.data.bss)
   c(coef(IPP.model),coef(ZTGLM.corrected))
 }
+
 #### step:8 boostrapping ####
 n.bootstraps=1000
 bootstrap.sample = mosaic::do(n.bootstraps) *tpnbs() # Ravi changed the moasic::do and tpnbs()
@@ -143,7 +151,8 @@ means= as.matrix(apply(bootstrap.sample,2, mean))
 sds= as.matrix(apply(bootstrap.sample,2, sd))
 means.sds= cbind(means, sds )
 ####
-#for (i in 1:ncol(bootstrap.sample)) {
+#
+for (i in 1:ncol(bootstrap.sample)) {
   
   hist(bootstrap.sample[,i], breaks=50)
 }
@@ -231,4 +240,5 @@ for(i in 1:nCol){
   }
 }
 #####
+edited
 
