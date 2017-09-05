@@ -208,31 +208,7 @@ myPred2 = predict(myfullstack, IPP.corrected, type = "response")
 plot(myPred2, xlab = "x", ylab= "y",main=" IPP model-intensity of group or ??")
 myPred3 = predict(myfullstack, ZTGLM.corrected , type = "response")
 plot(myPred3,main="ZTGLM-Number of koalas in a grid model") 
-
-
-3
-4
-5
-6
-7
-8
-9
-10
-11
-12
-13
-14
-15
-16
-17
-18
-19
-20
-21
-22
-23
-24
-
+-----------------------
 sapply(bootstrap.sample, function (x) class(x))
 
 #Get type of input data frame columns
