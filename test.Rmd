@@ -1,0 +1,50 @@
+-----------------
+title: "Untitled"
+author: "AB"
+date: "10 September 2017"
+output: html_document
+------------------
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{x=rnorm(10^6,0,1)
+eta.pres=8.5+1*x
+mat=matrix(exp(eta.pres), nrow=1000, ncol=1000)
+lam=im(mat, xrange=c(0,1), yrange=c(0,1))
+points=rpoispp(lam)
+x.ipp=(log(lam[points])-8.5)/1
+x.int=rnorm(1000,0,1)		
+y.IWLR=c(rep(1,length(x.ipp)),rep(0,length(x.int)))
+IPP.data=data.frame(y=y.IWLR,x=c(x.ipp,x.int))
+eta.group=1+0.5*x.ipp
+y.ZTGLM=rpospois(length(eta.group),exp(eta.group))
+ZTGLM.data=data.frame(group.size=y.ZTGLM,x=x.ipp)
+eta.det=-2+-1*x.ipp+0.5*scale(y.ZTGLM)
+detected=rbinom(length(eta.det),1,ilogit(eta.det))
+keep=c(1:round(0.20*length(x.ipp)))
+Detection.data=data.frame(y=detected[keep],x=x.ipp[keep],group.size=y.ZTGLM[keep])	
+IPP.data=IPP.data[c(which(detected==1),which(y.IWLR==0)),]
+ZTGLM.data=ZTGLM.data[which(detected==1),]
+
+
+}
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(mat)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

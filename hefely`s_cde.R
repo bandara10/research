@@ -168,7 +168,7 @@ bootstrap.sample=data.matrix(bootstrap.sample)
 ###############################################################################
 
 colMeans(bootstrap.sample)[1]
-sd(bootstrap.sample)[1]
+sd(bootstrap.sample2)[1]
 data(c(.025, .975),bootstrap.sample[,1])
 
 colMeans(bootstrap.sample)[2]
