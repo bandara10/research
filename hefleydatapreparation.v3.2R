@@ -206,9 +206,13 @@ myPred = predict(myfullstack, Detection.model, type = "response")
 plot(myPred, xlab = "x", ylab= "y",main="detection model")
 
 myPred2 = predict(myfullstack, IPP.ignored, type = "response")
-plot(myPred2, xlab = "x", ylab= "y",main=" IPP model-intensity of group or ??,")
-myPred3 = predict(myfullstack, ZTGLM.corrected , type = "response")
+plot(myPred2, col = rainbow(100), xlab = "x", ylab= "y",main=" IPP model-intensity of group or ??,")
+myPred3 = predict(myfullstack, ZTGLM.corrected, type = "response")
 plot(myPred3,main="ZTGLM-Number of koalas in a grid model") 
+
+
+
+
 -----------------------
   #means= as.matrix(apply(bootstrap.sample,2, mean))
   #sds= as.matrix(apply(bootstrap.sample,2, sd))
