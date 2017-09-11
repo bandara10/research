@@ -81,14 +81,17 @@ ZTGLM.data$p.det=p.det
 IPP.corrected= glm(presence~twi + tpo + temp + aspect + elev+habit2pc+hpop+lot_density+sbd,
                    family="binomial",data=IPP.data)
 summary(IPP.corrected)
-
+# broom package: used tidy to get a table from model outputs. This doesnt work for VGLMs.
+# get confidence intervals
+confidenceintervals <- confint(IPP.corrected)
+tidy(IPP.corrected,confidenceintervals)
 ####Step 6: Fit an zero-truncated Poisson generalized linear model that weights the log-likelihood by 1/p.det.####
 
 #use only the significant covariates, tpo +hpop+lot_density+sbd
 ZTGLM.corrected = vglm(group~twi+tpo+temp+aspect+elev+habit2pc+hpop+lot_density+sbd
                        ,weights=1/p.det,family="pospoisson",data=ZTGLM.data)
 summary(ZTGLM.corrected)
-
+ZTGLM.corrected
 # step 7:  Map predictions
 myPred = predict(myfullstack, Detection.model, type = "response")
 plot(myPred, xlab = "x", ylab= "y",main="detection model")
@@ -195,4 +198,5 @@ colMeans(bootstrap.sample)[26]
 
 
 
--
+dir/>dir.txt
+dir/b>dir.txt
