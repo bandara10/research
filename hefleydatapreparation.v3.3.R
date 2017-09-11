@@ -5,7 +5,8 @@ library(mosaic)
 library(spatstat)
 library(faraway)
 library(raster)
-library(nlme)
+library(broom)
+
 #library(dplyr)
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack")
 
@@ -17,9 +18,15 @@ myfullstack = stack(myfullstack.a)
 
 hefleydata <- read.csv("hefley_fishnet_rastermatch2011.csv", header = TRUE) # centroids for full study area as some sros are required.
 names(hefleydata)
+# plot koala presence locations
+hefleydata.presence <-subset(hefleydata, presence==1)
+coordinates(hefleydata.presence) <- ~x+y
+plot(hefleydata.presence, add=TRUE)
 # get only coordinates from dataset.
 hefleydata.s <- hefleydata[c("x","y")]
 hefleydata.s = as.data.frame(hefleydata.s)
+#select presence records
+
 #### Step 3:  extract X=vector.boot from raster anad combine wth hefleydata, presence and group varibels.####
 myFD = cbind(hefleydata.s,raster::extract(myfullstack,hefleydata.s))
 # get presence and group vriables
@@ -66,7 +73,7 @@ set.seed(123)
 #Detection model: steps as in Hefley`s code`
 Detection.model=glm(presence~  distance_pedestrian + s1_residential_dist + distance_trunkandlink +
                       distance_tertiaryandlink+ scale(group),family= "binomial", data=Detection.data)
-unclass(summary(Detection.model))
+#unclass(summary(Detection.model))
 #####Step 4: Estimate the probability of detection for each presence-only location.####
 p.det=ilogit(predict(Detection.model,new=ZTGLM.data))# chnaged myD to ZTGLM.data length =461. 3 X=vector.boot 
 hist(p.det, breaks=70)
@@ -94,11 +101,13 @@ ZTGLM.corrected
 # step 7:  Map predictions
 myPred = predict(myfullstack, Detection.model, type = "response")
 plot(myPred, xlab = "x", ylab= "y",main="detection model")
-
+plot(hefleydata.presence, add=TRUE)
 myPred2 = predict(myfullstack, IPP.corrected, type = "response")
 plot(myPred2, xlab = "x", ylab= "y",main=" IPP model-intensity of group or ??,")
+plot(hefleydata.presence, add=TRUE)
 myPred3 = predict(myfullstack, ZTGLM.corrected, type = "response")
-plot(myPred3,  main="ZTGLM-Number of koalas in a grid model") 
+plot(myPred3,  main="ZTGLM-Number of koalas in a grid model")
+plot(hefleydata.presence, add=TRUE)
 writeRaster(myPred3, "ZTGLM.tif")
 dev.off()
 ####
@@ -193,9 +202,5 @@ colMeans(bootstrap.sample)[25]
 colMeans(bootstrap.sample)[26]
 
  
-
-
-
-
-dir/>dir.txt
-dir/b>dir.txt
+#change resolution. by 4. get points in each cell. treat them as groups and size.
+#<- disaggregate(meuse.raster, fact=4)
