@@ -5,15 +5,14 @@ library(mosaic)
 library(spatstat)
 library(faraway)
 library(raster)
-
+library(nlme)
 #library(dplyr)
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack")
 
 #####  Step 1: read raster data from the folder and create a stack. ####
 
-myfullstack.a <- list.files(pattern="\\.tif") 
+myfullstack.a <- list.files(pattern="\\.tif$", full.names = TRUE) 
 myfullstack = stack(myfullstack.a)
-
 #### Step 2: import koala .csv data from the full study land region. Full square study are consists of land and sea. ####
 
 hefleydata <- read.csv("hefley_fishnet_rastermatch2011.csv", header = TRUE) # centroids for full study area as some sros are required.
