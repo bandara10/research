@@ -7,7 +7,10 @@ library(faraway)
 library(raster)
 library(broom)
 library(dismo)
-
+library(randomForest)
+library(forestFloor)
+library(AUC)
+library(rgl)
 #library(dplyr)
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack")
 
@@ -70,7 +73,7 @@ ZTGLM.ignored=vglm(group~twi+tpo+temp+aspect+elev+habit2pc+hpop+lot_density+sbd,
 summary(ZTGLM.ignored)
 
 #############  .
-set.seed(123)
+set.seed(123) # we create detection probabilities using two methods. glm, rf
 #Detection model: steps as in Hefley`s code`
 Detection.model=glm(presence~  distance_pedestrian + s1_residential_dist + distance_trunkandlink +
                       distance_tertiaryandlink+ scale(group),family= "binomial", data=Detection.data)
@@ -79,29 +82,47 @@ model <- presence~  distance_pedestrian + s1_residential_dist + distance_trunkan
   distance_tertiaryandlink
 rf1 <- randomForest(model, data=Detection.data)
 plot(rf1)
+str(rf1)
 pr <- predict(myfullstack, rf1)
-### to evalvuate the model create presence location and absence location datasets from hefleydata.s.
+#Random floor method
+  # Now use random floor for modelling
+y= Detection.data$presence
+X= Detection.data
+X = X[,!names(X)=="presence"]
+rf.default = randomForest(X,y,ntree=5000)
+rf.robust  = randomForest(X,y,sampsize=25,ntree=5000,mtry=4,
+                          keep.inbag = T,keep.forest = T)  
+ff = forestFloor(rf.robust,X,binary_reg = T,calc_np=T)
+Col = fcol(ff,cols=1,outlier.lim = 2.5)
+plot(ff,col=Col,plot_GOF = T)  
+ par(mfrow= c(3,3)) 
+ dev.off()
+show3d(ff,c(1,5),5,col=Col,plot_GOF = T); library(rgl); rgl.snapshot("3dPressure.png")
+ ### to evalvuate the model create presence location and absence location datasets from hefleydata.s.
 hefleydata.presence <-subset(hefleydata, presence==1)
-hefleydata.absence <-subset(hefleydata, presence==0)
 # model evaluvation using all presence records and absence records 
 absence.selected <- ZTGLM.myFD2[ZTGLM.myFD3, ]
 (rf1.evauvate <-evaluate(ZTGLM.myFD1, absence.selected, rf1))   
-
 plot(pr, main= "Detection probabilities- random forest")
-### random forest detection probabilities for next steps
-p.det = faraway::ilogit(predict(rf1,new=ZTGLM.data))# chnaged myD to ZTGLM.data length =461. 3 X=vector.boot 
+tr <- threshold(rf1.evauvate, "spec_sens") #  set a threshold valuve fordetected and non detected. 
+plot(pr > tr, main= "presence/absenec- random")
 
+### random forest detection probabilities for next steps
+p.det.rf = faraway::ilogit(predict(rf1,new=ZTGLM.data))# 
+hist(p.det.rf, breaks= 100)
 #unclass(summary(Detection.model))
+
+
+
 #####Step 4: Estimate the probability of detection for each presence-only location.####
 p.det = faraway::ilogit(predict(Detection.model,new=ZTGLM.data))# chnaged myD to ZTGLM.data length =461. 3 X=vector.boot 
-hist(p.det, breaks=70)
+hist(p.det, breaks=100)
 IPP.data$p.det=c(p.det,rep(1,length(ZTGLM.myFD3)))
 #IPP.data$p.det=p.det   # IPP.data number of obserarions=1461
 ZTGLM.data$p.det=p.det
 
 ######Step 5: - Fit an inhomogeneous Poisson point process  that weights the log-likelihood by 1/p.det . ####
 #use step function here then use significant variable in the next model. or else go to line 79. I asume this is correct way to do it.
-
 IPP.corrected= glm(presence~twi + tpo + temp + aspect + elev+habit2pc+hpop+lot_density+sbd,
                    family="binomial",data=IPP.data)
 summary(IPP.corrected)
@@ -126,7 +147,7 @@ plot(hefleydata.presence, add=TRUE)
 myPred3 = predict(myfullstack, ZTGLM.corrected, type = "response")
 plot(myPred3,  main="ZTGLM-Number of koalas in a grid - VGLM ")
 plot(hefleydata.presence, add=TRUE)
-writeRaster(myPred3, "ZTGLM.tif")
+#writeRaster(myPred3, "ZTGLM.tif")
 dev.off()
 ####
 
