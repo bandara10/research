@@ -85,19 +85,39 @@ plot(rf1)
 str(rf1)
 pr <- predict(myfullstack, rf1)
 #Random floor method
-  # Now use random floor for modelling
+ # Now use random floor for modelling
+
 y= Detection.data$presence
 X= Detection.data
 X = X[,!names(X)=="presence"]
-rf.default = randomForest(X,y,ntree=5000)
-rf.robust  = randomForest(X,y,sampsize=25,ntree=5000,mtry=4,
-                          keep.inbag = T,keep.forest = T)  
+# regression doesnt work. lets fix this by telling rf to do classification instead of regression as we have fewer valuves.
+# this to be done for the detection model as well.
+Detection.data$presence <- as.character(Detection.data$presence)
+Detection.data$presence <- as.factor(Detection.data$presence)
+
+rf.default = randomForest::randomForest(X,y,ntree=50)
+rf.robust  = randomForest:: randomForest(X,y,sampsize=25,ntree=5000, mtry=4, keep.inbag = y,keep.forest = T) 
+
+#Roc curves doesnt work for this data set. because message; are you sure want to do regresison. 
+
+plot(AUC::roc(rf.default$votes[,2],y) ,main="ROC: default black, robust is red")
+plot(AUC::roc(rf.robust$votes[,2],y),col=2,add = y)
+plot.new()
+print(AUC:: auc(AUC::roc(rf.default$votes[,2],y)))
+print(AUC:: auc(AUC::roc(rf.robust$votes[,2],y)))
+
+#computing feature contributions and visualization  
+  
 ff = forestFloor(rf.robust,X,binary_reg = T,calc_np=T)
 Col = fcol(ff,cols=1,outlier.lim = 2.5)
 plot(ff,col=Col,plot_GOF = T)  
- par(mfrow= c(3,3)) 
- dev.off()
-show3d(ff,c(1,5),5,col=Col,plot_GOF = T); library(rgl); rgl.snapshot("3dPressure.png")
+#A clear interaction effect can be observed  : troubeshoot"# reinstall rgdl and run rgl.close() to close all and then rerun above show3d from randomforestfloor.
+#Fitted surface(grey) estimate explained variance. 
+forestFloor::show3d(ff,c(1,5),5,col=Col,plot_GOF = T)
+
+
+#####
+
  ### to evalvuate the model create presence location and absence location datasets from hefleydata.s.
 hefleydata.presence <-subset(hefleydata, presence==1)
 # model evaluvation using all presence records and absence records 
@@ -243,3 +263,4 @@ colMeans(bootstrap.sample)[26]
  
 #change resolution. by 4. get points in each cell. treat them as groups and size.
 #<- disaggregate(meuse.raster, fact=4)
+
