@@ -6,6 +6,7 @@ library(spatstat)
 library(faraway)
 library(raster)
 library(broom)
+library(dismo)
 
 #library(dplyr)
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack")
@@ -73,9 +74,26 @@ set.seed(123)
 #Detection model: steps as in Hefley`s code`
 Detection.model=glm(presence~  distance_pedestrian + s1_residential_dist + distance_trunkandlink +
                       distance_tertiaryandlink+ scale(group),family= "binomial", data=Detection.data)
+#### Random  forest detection model
+model <- presence~  distance_pedestrian + s1_residential_dist + distance_trunkandlink +
+  distance_tertiaryandlink
+rf1 <- randomForest(model, data=Detection.data)
+plot(rf1)
+pr <- predict(myfullstack, rf1)
+### to evalvuate the model create presence location and absence location datasets from hefleydata.s.
+hefleydata.presence <-subset(hefleydata, presence==1)
+hefleydata.absence <-subset(hefleydata, presence==0)
+# model evaluvation using all presence records and absence records 
+absence.selected <- ZTGLM.myFD2[ZTGLM.myFD3, ]
+(rf1.evauvate <-evaluate(ZTGLM.myFD1, absence.selected, rf1))   
+
+plot(pr, main= "Detection probabilities- random forest")
+### random forest detection probabilities for next steps
+p.det = faraway::ilogit(predict(rf1,new=ZTGLM.data))# chnaged myD to ZTGLM.data length =461. 3 X=vector.boot 
+
 #unclass(summary(Detection.model))
 #####Step 4: Estimate the probability of detection for each presence-only location.####
-p.det=ilogit(predict(Detection.model,new=ZTGLM.data))# chnaged myD to ZTGLM.data length =461. 3 X=vector.boot 
+p.det = faraway::ilogit(predict(Detection.model,new=ZTGLM.data))# chnaged myD to ZTGLM.data length =461. 3 X=vector.boot 
 hist(p.det, breaks=70)
 IPP.data$p.det=c(p.det,rep(1,length(ZTGLM.myFD3)))
 #IPP.data$p.det=p.det   # IPP.data number of obserarions=1461
@@ -106,7 +124,7 @@ myPred2 = predict(myfullstack, IPP.corrected, type = "response")
 plot(myPred2, xlab = "x", ylab= "y",main=" IPP model-intensity of group or ??,")
 plot(hefleydata.presence, add=TRUE)
 myPred3 = predict(myfullstack, ZTGLM.corrected, type = "response")
-plot(myPred3,  main="ZTGLM-Number of koalas in a grid model")
+plot(myPred3,  main="ZTGLM-Number of koalas in a grid - VGLM ")
 plot(hefleydata.presence, add=TRUE)
 writeRaster(myPred3, "ZTGLM.tif")
 dev.off()
