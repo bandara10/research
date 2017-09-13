@@ -2,7 +2,18 @@
 ###################
 library(dismo)
 library(gbm)
-
+library(spatial.tools)
+library(VGAM)
+library(mosaic)
+library(spatstat)
+library(faraway)
+library(raster)
+library(broom)
+library(dismo)
+library(randomForest)
+library(forestFloor)
+library(AUC)
+library(rgl)
 myfullstack.a <- list.files(pattern="\\.tif$", full.names = TRUE) 
 myfullstack = stack(myfullstack.a)
 #### Step 2: import koala .csv data from the full study land region. Full square study are consists of land and sea. ####
@@ -34,12 +45,29 @@ ZTGLM.myFD3 <- sample(seq_len(nrow(ZTGLM.myFD2)), size = 1000,replace=FALSE)#sel
 ZTGLM.myFD4 <- ZTGLM.myFD2[ZTGLM.myFD3, ] #x.int data frame now
 #This is  similar to hefley`s IWLR data set.
 ZTGLM.myFD5=rbind(ZTGLM.myFD1,ZTGLM.myFD4) 
+###
+##### Step 6: now take a random sample of 80 and assign detected 1 non detected 0.####
+train <- sample(seq_len(nrow(ZTGLM.myFD1)), size = 80,replace=FALSE)
+detected <- ZTGLM.myFD1[train, ]
+notdetected <- ZTGLM.myFD1[-train,] 
+#not detected assigned valuve 0
+notdetected$presence <- 0
+##### Step 7: Create the final data sets for the analysis####
+Detection.data= rbind(detected,notdetected) 
+Detection.data[53] <- lapply(Detection.data[53], as.numeric)
+IPP.data=rbind(detected, ZTGLM.myFD4) #IPP.data comes from detected data plus no koalas data from myFD1.
 
+ZTGLM.data=(detected)##ZTGLM.data# get the 80 rows selected.
+
+
+
+#  use BRT to predict detectoin probabilities
+#   https://cran.r-project.org/web/packages/gbm/gbm.pdf
 # Creates the BRT object
 nVar = length(myfullstack)
  # select varibles 
 newZTGLM5 <- ZTGLM.myFD5[c(1,2,53,8:23)]
-myBRT <- gbm.step(newZTGLM5,gbm.x = 4:19,gbm.y = 3,family = "bernoulli",tree.complexity = 2,learning.rate = 0.01,bag.fraction = 0.75)
+myBRT <- gbm.step(newZTGLM5,gbm.x = 4:19,gbm.y = 3,family = "bernoulli",tree.complexity = 2,learning.rate = 0.08,bag.fraction = 0.75) #,family = "bernoulli",tree.complexity = 2,learning.rate = 0.01,bag.fraction = 0.75
 plot(myBRT)
 par(mgp=c(3,1,0),mar=c(10,12,3,2)+0.1) # set mrgins for the plot
 summary(myBRT, las=2, asp = 1)
@@ -47,18 +75,25 @@ dev.off()
 par(mfrow=c(4,4))
 gbm.plot(myBRT, n.plots = 16, write.title = FALSE)
 #get predictions and plot full model.
-predictions <- predict(myfullstack, myBRT, n.trees=myBRT$gbm.call$best.trees, type="response")
+predictions <- predict(myfullstack, myBRT, n.trees=myBRT$gbm.call$best.trees, type="response") #
 plot(predictions)
-#reduce model
+#########Now fit the reduced model by selecting covariate most infulential
+#         covariates selected from the dataset : varible 7,8,16, and 18
 set.seed(125)
-myBRT.2 <- gbm.step(newZTGLM5, gbm.x = c(7, 8, 16, 18), gbm.y = 3,family = "bernoulli",tree.complexity = 2,learning.rate = 0.01,bag.fraction = 0.75) #Build initial model
+myBRT.2 <- gbm.step(newZTGLM5, gbm.x = c(7, 8, 16, 18), gbm.y = 3) #Build initial model #,family = "bernoulli",tree.complexity = 2,learning.rate = 0.01,bag.fraction = 0.75
 gbm.plot(myBRT.2, n.plots = 16, write.title = FALSE)
 summary(myBRT.2, las=2, asp = 1)
-predictions.2 <- predict(myfullstack, myBRT.2, n.trees=myBRT$gbm.call$best.trees, type="response")
+predictions.2 <- predict(myfullstack, myBRT.2, n.trees=myBRT.2$gbm.call$best.trees, type="response")
 #plot predictions
 plot(predictions.2,main="Detection proabilities ")
 plot(hefleydata.presence,  cex = 0.3,add=TRUE)
-writeRaster(predictions.2,"Detection proabilities_BRT.asc")
+p.det = faraway::ilogit(predict(myBRT,n.trees=myBRT$gbm.call$best.trees, type="response",new=ZTGLM.data))# chnaged myD to ZTGLM.data length =461. 3 X=vector.boot 
+hist(p.det, breaks=50)
+ZTGLM.data$p.det=p.det
+######
+# This section for BRT for my interest
+#
+#writeRaster(predictions.2,"Detection proabilities_BRT.asc")
 gbm.plot.fits(myBRT.2)
 find.int <- gbm.interactions(myBRT.2)
 find.int$interactions
@@ -67,3 +102,43 @@ DD<-find.int$rank.list
 par(mgp=c(10,10,0),mar=c(0,3,3,2)+0.1)
 gbm.perspec(myBRT,4, 3)
 myBRT$cv.loss.matrix
+######### Now we use this detection probabilities instead of detection probabilities derived from Hefley`s method.`
+
+ZTGLM.data$p.det=p.det
+
+######Step 5: - Fit an inhomogeneous Poisson point process  that weights the log-likelihood by 1/p.det . ####
+#use step function here then use significant variable in the next model. or else go to line 79. I asume this is correct way to do it.
+IPP.corrected= glm(presence~twi + tpo + temp + aspect + elev+habit2pc+hpop+lot_density+sbd,
+                   family="binomial",data=IPP.data)
+summary(IPP.corrected)
+# broom package: used tidy to get a table from model outputs. This doesnt work for VGLMs.
+# get confidence intervals
+confidenceintervals <- confint(IPP.corrected)
+tidy(IPP.corrected,confidenceintervals)
+####Step 6: Fit an zero-truncated Poisson generalized linear model that weights the log-likelihood by 1/p.det.####
+
+#use only the significant covariates, tpo +hpop+lot_density+sbd
+# VGAM: read about which family to use: https://www.r-project.org/doc/Rnews/Rnews_2008-2.pdf
+ZTGLM.corrected = vglm(group~twi+tpo+temp+aspect+elev+habit2pc+hpop+lot_density+sbd
+                       ,weights=1/p.det,family="pospoisson",data=ZTGLM.data) # zapoisson
+summary(ZTGLM.corrected)
+ZTGLM.corrected
+qtplot(ZTGLM.corrected)
+# step 7:  Map predictions
+myPred = predict(myfullstack, Detection.model, type = "response")
+plot(myPred, xlab = "x", ylab= "y",main="detection model")
+plot(hefleydata.presence, add=TRUE)
+myPred2 = predict(myfullstack, IPP.corrected, type = "response")
+plot(myPred2, xlab = "x", ylab= "y",main=" IPP model-intensity of group or ??,")
+plot(hefleydata.presence, add=TRUE)
+myPred3.1 = predict(myfullstack, ZTGLM.corrected, type = "response")
+plot(myPred3.1,  main="ZTGLM-Number of koalas in a grid - VGLM ")
+plot(hefleydata.presence, add=TRUE)
+writeRaster(myPred3, "ZTGLM.tif")
+dev.off()
+
+
+
+
+
+
