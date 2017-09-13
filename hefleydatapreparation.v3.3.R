@@ -73,28 +73,33 @@ ZTGLM.ignored=vglm(group~twi+tpo+temp+aspect+elev+habit2pc+hpop+lot_density+sbd,
 summary(ZTGLM.ignored)
 
 #############  .
-set.seed(123) # we create detection probabilities using two methods. glm, rf
-#Detection model: steps as in Hefley`s code`
-Detection.model=glm(presence~  distance_pedestrian + s1_residential_dist + distance_trunkandlink +
-                      distance_tertiaryandlink+ scale(group),family= "binomial", data=Detection.data)
-#### Random  forest detection model
+
+#### Random  forest detection model :
+#           In random forests data is resampled from the the train set for as many trees 
+#           as in the forest(default is 500 in R). So if you have so few values,it is not 
+#           enough for the random forest to create unique trees. However, classification can be 
+#           perforemd instead of regression, to do that convert the response variable(target) to factor . 
+#           Since RF is a CART it builds a model basing on the type of the response variable. I have done both here.
+#
 model <- presence~  distance_pedestrian + s1_residential_dist + distance_trunkandlink +
   distance_tertiaryandlink
-rf1 <- randomForest(model, data=Detection.data)
+rf1 <- randomForest(model, data=Detection.data) 
 plot(rf1)
 str(rf1)
-pr <- predict(myfullstack, rf1)
-#Random floor method
- # Now use random floor for modelling
-
+pr2 <- predict(myfullstack, rf1)
+plot(pr2)
+str(Detection.data)
+##########Random floor method
+#       https://stats.stackexchange.com/questions/183852/can-i-see-the-contribution-way-of-an-input-variable-in-random-forest-model
+#       Now use random floor for modelling
 y= Detection.data$presence
 X= Detection.data
 X = X[,!names(X)=="presence"]
-# regression doesnt work. lets fix this by telling rf to do classification instead of regression as we have fewer valuves.
-# this to be done for the detection model as well.
+#       regression doesnt work. lets fix this by telling rf to do classification instead of regression as we have fewer valuves.
+#       this to be done for the detection model as well.
 Detection.data$presence <- as.character(Detection.data$presence)
 Detection.data$presence <- as.factor(Detection.data$presence)
-
+#
 rf.default = randomForest::randomForest(X,y,ntree=50)
 rf.robust  = randomForest:: randomForest(X,y,sampsize=25,ntree=5000, mtry=4, keep.inbag = y,keep.forest = T) 
 
@@ -131,8 +136,11 @@ plot(pr > tr, main= "presence/absenec- random")
 p.det.rf = faraway::ilogit(predict(rf1,new=ZTGLM.data))# 
 hist(p.det.rf, breaks= 100)
 #unclass(summary(Detection.model))
-
-
+#Hefley method GLM
+set.seed(123) # we create detection probabilities using two methods. glm, rf
+#Detection model: steps as in Hefley`s code`
+Detection.model=glm(presence~  distance_pedestrian + s1_residential_dist + distance_trunkandlink +
+                      distance_tertiaryandlink+ scale(group),family= "binomial", data=Detection.data)
 
 #####Step 4: Estimate the probability of detection for each presence-only location.####
 p.det = faraway::ilogit(predict(Detection.model,new=ZTGLM.data))# chnaged myD to ZTGLM.data length =461. 3 X=vector.boot 
@@ -153,10 +161,12 @@ tidy(IPP.corrected,confidenceintervals)
 ####Step 6: Fit an zero-truncated Poisson generalized linear model that weights the log-likelihood by 1/p.det.####
 
 #use only the significant covariates, tpo +hpop+lot_density+sbd
+# VGAM: read about which family to use: https://www.r-project.org/doc/Rnews/Rnews_2008-2.pdf
 ZTGLM.corrected = vglm(group~twi+tpo+temp+aspect+elev+habit2pc+hpop+lot_density+sbd
-                       ,weights=1/p.det,family="pospoisson",data=ZTGLM.data)
+                       ,weights=1/p.det,family="pospoisson",data=ZTGLM.data) # zapoisson
 summary(ZTGLM.corrected)
 ZTGLM.corrected
+qtplot(ZTGLM.corrected)
 # step 7:  Map predictions
 myPred = predict(myfullstack, Detection.model, type = "response")
 plot(myPred, xlab = "x", ylab= "y",main="detection model")
@@ -164,10 +174,10 @@ plot(hefleydata.presence, add=TRUE)
 myPred2 = predict(myfullstack, IPP.corrected, type = "response")
 plot(myPred2, xlab = "x", ylab= "y",main=" IPP model-intensity of group or ??,")
 plot(hefleydata.presence, add=TRUE)
-myPred3 = predict(myfullstack, ZTGLM.corrected, type = "response")
-plot(myPred3,  main="ZTGLM-Number of koalas in a grid - VGLM ")
+myPred3.1 = predict(myfullstack, ZTGLM.corrected, type = "response")
+plot(myPred3.1,  main="ZTGLM-Number of koalas in a grid - VGLM ")
 plot(hefleydata.presence, add=TRUE)
-#writeRaster(myPred3, "ZTGLM.tif")
+writeRaster(myPred3, "ZTGLM.tif")
 dev.off()
 ####
 
