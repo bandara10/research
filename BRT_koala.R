@@ -2,6 +2,39 @@
 ###################
 library(dismo)
 library(gbm)
+
+myfullstack.a <- list.files(pattern="\\.tif$", full.names = TRUE) 
+myfullstack = stack(myfullstack.a)
+#### Step 2: import koala .csv data from the full study land region. Full square study are consists of land and sea. ####
+
+hefleydata <- read.csv("hefley_fishnet_rastermatch2011.csv", header = TRUE) # centroids for full study area as some sros are required.
+names(hefleydata)
+# plot koala presence locations
+hefleydata.presence <-subset(hefleydata, presence==1)
+coordinates(hefleydata.presence) <- ~x+y
+plot(hefleydata.presence, add=TRUE)
+# get only coordinates from dataset.
+hefleydata.s <- hefleydata[c("x","y")]
+hefleydata.s = as.data.frame(hefleydata.s)
+#select presence records
+
+#### Step 3:  extract X=vector.boot from raster anad combine wth hefleydata, presence and group varibels.####
+myFD = cbind(hefleydata.s,raster::extract(myfullstack,hefleydata.s))
+# get presence and group vriables
+myFD1 = cbind(myFD,hefleydata [6]) # get presence and group data. 
+myFD1 = na.omit(myFD1) # remove all NA valuves
+
+#### Step 4: select presence and abnsences data and combine with. #### 
+ZTGLM.myFD1=myFD1[which(myFD1$presence==1),] # select presence data. THis will be reorganised as 0 and 1 later.
+ZTGLM.myFD2=myFD1[which(myFD1$presence==0),] # select all absence data 
+
+#####Step 5: select only 1000 absences (monticarlo points as in hefleys method??)####
+set.seed(12345)
+ZTGLM.myFD3 <- sample(seq_len(nrow(ZTGLM.myFD2)), size = 1000,replace=FALSE)#select only 1000 absences use for ipp.data
+ZTGLM.myFD4 <- ZTGLM.myFD2[ZTGLM.myFD3, ] #x.int data frame now
+#This is  similar to hefley`s IWLR data set.
+ZTGLM.myFD5=rbind(ZTGLM.myFD1,ZTGLM.myFD4) 
+
 # Creates the BRT object
 nVar = length(myfullstack)
  # select varibles 
@@ -13,29 +46,24 @@ summary(myBRT, las=2, asp = 1)
 dev.off()
 par(mfrow=c(4,4))
 gbm.plot(myBRT, n.plots = 16, write.title = FALSE)
-myMask <- raster("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack\\mask\\mask.tif")
-myPDF = as.data.frame(values(myMask))
-
+#get predictions and plot full model.
 predictions <- predict(myfullstack, myBRT, n.trees=myBRT$gbm.call$best.trees, type="response")
 plot(predictions)
-
-# Creates a dataframe with the predictors
-for (i in 1:length(myPredictors)){
-  myVec = values(raster(paste(myPredictors[i],".asc",sep="")))
-  myPDF = cbind(myPDF,myVec)
-}
-names(myPDF) = c("Mask",myPredictors)
-# Get the predicted values
-myPredValues = predict.gbm(myBRT, n.trees = myBRT$gbm.call$best.trees,tree.complexity = 5, learning.rate = 0.005,newdata = myPDF, type = "response")
-# Convert the predicted values to a raster
-myPredR = setValues(myMask,myPredValues)*myMask
-plot(myPredR,main="Predictive risk map for H5N1")
-plot(myProvShape, axes = T, add = T)
-points(myND$x_utm45, myND$y_utm45, pch = 15, col = "red", cex = 0.6)
-writeRaster(myPredR,"BRTPredictionfao_18_06_14.asc")
-gbm.plot.fits(myBRT)
-find.int <- gbm.interactions(myBRT)
+#reduce model
+set.seed(125)
+myBRT.2 <- gbm.step(newZTGLM5, gbm.x = c(7, 8, 16, 18), gbm.y = 3,family = "bernoulli",tree.complexity = 2,learning.rate = 0.01,bag.fraction = 0.75) #Build initial model
+gbm.plot(myBRT.2, n.plots = 16, write.title = FALSE)
+summary(myBRT.2, las=2, asp = 1)
+predictions.2 <- predict(myfullstack, myBRT.2, n.trees=myBRT$gbm.call$best.trees, type="response")
+#plot predictions
+plot(predictions.2,main="Detection proabilities ")
+plot(hefleydata.presence,  cex = 0.3,add=TRUE)
+writeRaster(predictions.2,"Detection proabilities_BRT.asc")
+gbm.plot.fits(myBRT.2)
+find.int <- gbm.interactions(myBRT.2)
 find.int$interactions
-find.int$rank.list
+DD<-find.int$rank.list
 #rainfall_paddy
-gbm.perspec(myBRT,13, 11, y.range=c(3,15), z.range=c(0,1))
+par(mgp=c(10,10,0),mar=c(0,3,3,2)+0.1)
+gbm.perspec(myBRT,4, 3)
+myBRT$cv.loss.matrix
