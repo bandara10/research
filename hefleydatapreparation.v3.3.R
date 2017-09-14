@@ -73,72 +73,8 @@ summary(IPP.ignored)
 ZTGLM.ignored=vglm(group~twi+tpo+temp+aspect+elev+habit2pc+hpop+lot_density+sbd,family="pospoisson", data=ZTGLM.data)
 summary(ZTGLM.ignored)
 
-#############  .
 
-#### Random  forest detection model :
-#           In random forests data is resampled from the the train set for as many trees 
-#           as in the forest(default is 500 in R). So if you have so few values,it is not 
-#           enough for the random forest to create unique trees. However, classification can be 
-#           perforemd instead of regression, to do that convert the response variable(target) to factor . 
-#           Since RF is a CART it builds a model basing on the type of the response variable. I have done both here.
-#
-model <- presence~  distance_pedestrian + s1_residential_dist + distance_trunkandlink +
-  distance_tertiaryandlink
-rf1 <- randomForest(model, data=Detection.data) 
-pr2 <- predict(myfullstack, rf1)
-plot(pr2)
-#####computing feature contributions and visualization
-ff = forestFloor(rf1,X,binary_reg = T,calc_np=T)
-Col = fcol(ff,cols=1,outlier.lim = 2.5)
-plot(ff,col=Col,plot_GOF = T)  
-
-### to evalvuate the model create presence location and absence location datasets from hefleydata.s.
-hefleydata.presence <-subset(hefleydata, presence==1)
-# model evaluvation using all presence records and absence records 
-absence.selected <- ZTGLM.myFD2[ZTGLM.myFD3, ]
-(rf1.evauvate <-evaluate(ZTGLM.myFD1, absence.selected, rf1))   
-plot(pr2, main= "Detection probabilities- random forest")
-tr <- threshold(rf1.evauvate, "spec_sens") #  set a threshold valuve fordetected and non detected. 
-plot(pr2 > tr, main= "presence/absenec- random")
-
-##########Random floor method do classification.
-#       https://stats.stackexchange.com/questions/183852/can-i-see-the-contribution-way-of-an-input-variable-in-random-forest-model
-#       Now use random floor for modelling
-y= Detection.data$presence
-X= Detection.data
-X = X[,!names(X)=="presence"]
-#       regression doesnt work. lets fix this by telling rf to do classification instead of regression as we have fewer valuves.
-#       this to be done for the detection model as well.
-Detection.data$presence <- as.character(Detection.data$presence)
-Detection.data$presence <- as.factor(Detection.data$presence)
-#
-rf.default = randomForest::randomForest(X,y,ntree=5000)
-rf.robust  = randomForest:: randomForest(X,y,sampsize=25,ntree=5000, mtry=4, keep.inbag = y,keep.forest = T) 
-pr3 <- predict(myfullstack, rf.default)
-pr4 <- predict(myfullstack, rf.robust)
-plot(pr3)
-
-#Roc curves doesnt work for this data set. because message; are you sure want to do regresison. 
-
-plot(AUC::roc(rf.default$votes[,2],y) ,main="ROC: default black, robust is red")
-plot(AUC::roc(rf.robust$votes[,2],y),col=2,add = y)
-plot.new()
-print(AUC:: auc(AUC::roc(rf.default$votes[,2],y)))
-print(AUC:: auc(AUC::roc(rf.robust$votes[,2],y)))
-
-#computing feature contributions and visualization  
-  
-ff = forestFloor(rf.robust,X,binary_reg = T,calc_np=T)
-Col = fcol(ff,cols=1,outlier.lim = 2.5)
-plot(ff,col=Col,plot_GOF = T)  
-#A clear interaction effect can be observed  : troubeshoot"# reinstall rgdl and run rgl.close() to close all and then rerun above show3d from randomforestfloor.
-#Fitted surface(grey) estimate explained variance. 
-forestFloor::show3d(ff,c(1,5),5,col=Col,plot_GOF = T)
-
-
-###back to hefley method from here onwards:
-### random forest detection probabilities for next steps
-p.det.rf = faraway::ilogit(predict(rf1,new=ZTGLM.data))# 
+p.det.rf = faraway::ilogit(predict(Detection.model,new=ZTGLM.data))# 
 #unclass(summary(Detection.model))
 #Hefley method GLM
 set.seed(123) # we create detection probabilities using two methods. glm, rf
