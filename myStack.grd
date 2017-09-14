@@ -1,0 +1,25 @@
+[general]
+creator=R package 'raster'
+created=2017-09-12 22:03:49
+[georeference]
+nrows=100
+ncols=100
+xmin=441829
+ymin=6901098
+xmax=541829
+ymax=7001098
+projection=+proj=utm +zone=56 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs
+[data]
+datatype=FLT8S
+byteorder=little
+nbands=49
+bandorder=BIL
+minvalue=0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:-4.16136455535889:98.2449066590502:0:0:0:0:0:0:0:0:0:0:14.5080280920932:0:0:0:0:0:0:0:0:0:0:0:0:0:0:14.5080280920932:0:0
+maxvalue=354.182342202016:16.4800501156604:42.5019936572019:17691.806640625:17029.38671875:37656.33984375:73246.1603089199:54644.304369257:43462.6276242015:50000:44294.4691807002:54817.880294663:30594.1170815567:22825.4244210267:24186.7732448956:50487.6222454574:25961.5099714943:61220.9114600559:24083.1891575846:705.906125512795:181.93527490112:100:11547.8660973485:100:10320.8902546926:100:35902.8514908493:100:4099.44132922752:2500:0.542349229679681:20:43.2568483732:13656.8542494924:13414.2135623731:13414.2135623731:13656.8542494924:11485.2813742386:11485.2813742386:18899.4949366117:18899.4949366117:19899.4949366117:1.16314049659136:0.98066948121:1:1:20:0.149723018017574:13.7412460342254
+nodatavalue=-1.7e+308
+[legend]
+legendtype=
+values=
+color=
+[description]
+layername=aspect:awc:clay:Dis_habitat_suitable_1:Dis_habitat_suitable_2:Dis_habitat_suitable_3:distance_bridleway:distance_cycleway:distance_footway:distance_motorwayandlink:distance_path:distance_pedestrian:distance_primaryandlink:distance_residentil:distance_secondaryandlink:distance_steps:distance_tertiaryandlink:distance_trunkandlink:distance_unclassified:elev:fpc:habit0pc:habit1:habit1pc:habit2:habit2pc:habit3:habit3pc:hpop:lot_density:nitro:rain:roadk:s1_residential_dist:s1_secondry_dist:s1_unclassified_dist:s2_residential_dist:s2_secondry_dist:s2_unclassified_dist:s3_residential_dist:s3_secondry_dist:s3_unclassified_dist:sbd:suitable_1:suitable_2:suitable_3:temp:tpo:twi

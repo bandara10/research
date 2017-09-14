@@ -143,7 +143,9 @@ Detection.model=glm(presence~  distance_pedestrian + s1_residential_dist + dista
                       distance_tertiaryandlink+ scale(group),family= "binomial", data=Detection.data)
 
 #####Step 4: Estimate the probability of detection for each presence-only location.####
-p.det = faraway::ilogit(predict(Detection.model,new=ZTGLM.data))# chnaged myD to ZTGLM.data length =461. 3 X=vector.boot 
+p.det = faraway::ilogit(predict(Detection.model, type="response",new=ZTGLM.data))# chnaged myD to ZTGLM.data length =461. 3 X=vector.boot 
+#myBRT,n.trees=myBRT$gbm.call$best.trees ; add this as model in the above function.
+
 hist(p.det, breaks=100)
 IPP.data$p.det=c(p.det,rep(1,length(ZTGLM.myFD3)))
 #IPP.data$p.det=p.det   # IPP.data number of obserarions=1461

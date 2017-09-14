@@ -170,7 +170,6 @@ bootstrap.sample=data.matrix(bootstrap.sample)
 colMeans(bootstrap.sample)[1]
 sd(bootstrap.sample)[1]
 data(c(.025, .975),bootstrap.sample[,1])
-
 colMeans(bootstrap.sample)[2]
 sd(bootstrap.sample)[2]
 data(c(.025, .975),bootstrap.sample[,2])
@@ -179,4 +178,33 @@ colMeans(bootstrap.sample)[3]
 sd(bootstrap.sample)[3]
 data(c(.025, .975),bootstrap.sample[,3])
 
+ #histogrames for each colomns. (sample; means, intercept;means, covariate;means,  )
+for (i in 1:ncol(bootstrap.sample)) {
+  
+  hist(bootstrap.sample[,i], breaks=50)
+}
+
+
+# keep objects for reuse as we run the model with same names.
+plot(Detection.model) # this is hefley detectiono model
+Hefley.Detection.model.plot <- recordPlot(Detection.model) # keep this and delete Detection.model
+#     save as a plot object for resue. 
+#     as we want to change detection model in other abalysis with same name.
+replayPlot(Hefley.Detection.model.plot) #  replay from global env. 
+dev.off()
+par(mfrow= c(2,2))
+plot(IPP.ignored)
+Hefley.IPP.ignored.plot <- recordPlot(IPP.ignored)
+plot(IPP.corrected)
+Hefley.IPP.corrected.plot <- recordPlot(IPP.corrected)
+plot(ZTGLM.ignored)
+plot(ZTGLM.corrected)
+Hefley.ZTGLM.plot <- recordPlot(ZTGLM.corrected)
+
+
+# below are plots for models
+replayPlot(Hefley.Detection.model.plot)
+replayPlot(Hefley.IPP.ignored.plot)
+replayPlot(Hefley.IPP.corrected.plot)
+replayPlot(Hefley.ZTGLM.plot)
 
