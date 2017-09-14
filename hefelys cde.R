@@ -178,7 +178,8 @@ colMeans(bootstrap.sample)[3]
 sd(bootstrap.sample)[3]
 data(c(.025, .975),bootstrap.sample[,3])
 
- #histogrames for each colomns. (sample; means, intercept;means, covariate;means,  )
+
+######histogrames for each colomns. (sample; means, intercept;means, covariate;means,  )
 for (i in 1:ncol(bootstrap.sample)) {
   
   hist(bootstrap.sample[,i], breaks=50)
