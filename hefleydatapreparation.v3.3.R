@@ -17,18 +17,20 @@ setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack"
 #####  Step 1: read raster data from the folder and create a stack. ####
 
 myfullstack.a <- list.files(pattern="\\.tif$", full.names = TRUE) 
-myfullstack = stack(myfullstack.a)
+myfullstack <- stack(myfullstack.a)
+plot(myfullstack)
 #### Step 2: import koala .csv data from the full study land region. Full square study are consists of land and sea. ####
-
 hefleydata <- read.csv("hefley_fishnet_rastermatch2011.csv", header = TRUE) # centroids for full study area as some sros are required.
 names(hefleydata)
 # plot koala presence locations
 hefleydata.presence <-subset(hefleydata, presence==1)
 coordinates(hefleydata.presence) <- ~x+y
-plot(hefleydata.presence, add=TRUE)
+plot(hefleydata.presence)
+
 # get only coordinates from dataset.
 hefleydata.s <- hefleydata[c("x","y")]
 hefleydata.s = as.data.frame(hefleydata.s)
+#plot(hefleydata.s)
 #select presence records
 
 #### Step 3:  extract X=vector.boot from raster anad combine wth hefleydata, presence and group varibels.####
@@ -40,7 +42,6 @@ myFD1 = na.omit(myFD1) # remove all NA valuves
 #### Step 4: select presence and abnsences data and combine with. #### 
 ZTGLM.myFD1=myFD1[which(myFD1$presence==1),] # select presence data. THis will be reorganised as 0 and 1 later.
 ZTGLM.myFD2=myFD1[which(myFD1$presence==0),] # select all absence data 
-
 #####Step 5: select only 1000 absences (monticarlo points as in hefleys method??)####
 set.seed(12345)
 ZTGLM.myFD3 <- sample(seq_len(nrow(ZTGLM.myFD2)), size = 1000,replace=FALSE)#select only 1000 absences use for ipp.data
@@ -49,7 +50,7 @@ ZTGLM.myFD4 <- ZTGLM.myFD2[ZTGLM.myFD3, ] #x.int data frame now
 ZTGLM.myFD5=rbind(ZTGLM.myFD1,ZTGLM.myFD4) 
 
 ##### Step 6: now take a random sample of 80 and assign detected 1 non detected 0.####
-train <- sample(seq_len(nrow(ZTGLM.myFD1)), size = 80,replace=FALSE)
+train <- sample(seq_len(nrow(ZTGLM.myFD1)), size = 40,replace=FALSE)
 detected <- ZTGLM.myFD1[train, ]
 notdetected <- ZTGLM.myFD1[-train,] 
 #not detected assigned valuve 0
@@ -84,12 +85,23 @@ summary(ZTGLM.ignored)
 model <- presence~  distance_pedestrian + s1_residential_dist + distance_trunkandlink +
   distance_tertiaryandlink
 rf1 <- randomForest(model, data=Detection.data) 
-plot(rf1)
-str(rf1)
 pr2 <- predict(myfullstack, rf1)
 plot(pr2)
-str(Detection.data)
-##########Random floor method
+#####computing feature contributions and visualization
+ff = forestFloor(rf1,X,binary_reg = T,calc_np=T)
+Col = fcol(ff,cols=1,outlier.lim = 2.5)
+plot(ff,col=Col,plot_GOF = T)  
+
+### to evalvuate the model create presence location and absence location datasets from hefleydata.s.
+hefleydata.presence <-subset(hefleydata, presence==1)
+# model evaluvation using all presence records and absence records 
+absence.selected <- ZTGLM.myFD2[ZTGLM.myFD3, ]
+(rf1.evauvate <-evaluate(ZTGLM.myFD1, absence.selected, rf1))   
+plot(pr2, main= "Detection probabilities- random forest")
+tr <- threshold(rf1.evauvate, "spec_sens") #  set a threshold valuve fordetected and non detected. 
+plot(pr2 > tr, main= "presence/absenec- random")
+
+##########Random floor method do classification.
 #       https://stats.stackexchange.com/questions/183852/can-i-see-the-contribution-way-of-an-input-variable-in-random-forest-model
 #       Now use random floor for modelling
 y= Detection.data$presence
@@ -100,8 +112,11 @@ X = X[,!names(X)=="presence"]
 Detection.data$presence <- as.character(Detection.data$presence)
 Detection.data$presence <- as.factor(Detection.data$presence)
 #
-rf.default = randomForest::randomForest(X,y,ntree=50)
+rf.default = randomForest::randomForest(X,y,ntree=5000)
 rf.robust  = randomForest:: randomForest(X,y,sampsize=25,ntree=5000, mtry=4, keep.inbag = y,keep.forest = T) 
+pr3 <- predict(myfullstack, rf.default)
+pr4 <- predict(myfullstack, rf.robust)
+plot(pr3)
 
 #Roc curves doesnt work for this data set. because message; are you sure want to do regresison. 
 
@@ -121,20 +136,9 @@ plot(ff,col=Col,plot_GOF = T)
 forestFloor::show3d(ff,c(1,5),5,col=Col,plot_GOF = T)
 
 
-#####
-
- ### to evalvuate the model create presence location and absence location datasets from hefleydata.s.
-hefleydata.presence <-subset(hefleydata, presence==1)
-# model evaluvation using all presence records and absence records 
-absence.selected <- ZTGLM.myFD2[ZTGLM.myFD3, ]
-(rf1.evauvate <-evaluate(ZTGLM.myFD1, absence.selected, rf1))   
-plot(pr, main= "Detection probabilities- random forest")
-tr <- threshold(rf1.evauvate, "spec_sens") #  set a threshold valuve fordetected and non detected. 
-plot(pr > tr, main= "presence/absenec- random")
-
+###back to hefley method from here onwards:
 ### random forest detection probabilities for next steps
 p.det.rf = faraway::ilogit(predict(rf1,new=ZTGLM.data))# 
-hist(p.det.rf, breaks= 100)
 #unclass(summary(Detection.model))
 #Hefley method GLM
 set.seed(123) # we create detection probabilities using two methods. glm, rf
@@ -168,7 +172,6 @@ ZTGLM.corrected = vglm(group~twi+tpo+temp+aspect+elev+habit2pc+hpop+lot_density+
                        ,weights=1/p.det,family="pospoisson",data=ZTGLM.data) # zapoisson
 summary(ZTGLM.corrected)
 ZTGLM.corrected
-qtplot(ZTGLM.corrected)
 # step 7:  Map predictions
 myPred = predict(myfullstack, Detection.model, type = "response")
 plot(myPred, xlab = "x", ylab= "y",main="detection model")
