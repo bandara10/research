@@ -64,21 +64,26 @@ ZTGLM.data=(detected)##ZTGLM.data# get the 80 rows selected.
 #  use BRT to predict detectoin probabilities
 #   https://cran.r-project.org/web/packages/gbm/gbm.pdf
 # Creates the BRT object
-nVar = length(myfullstack)
- # select varibles 
-newZTGLM5 <- ZTGLM.myFD5[c(1,2,53,8:23)]
-myBRT <- gbm.step(newZTGLM5,gbm.x = 4:19,gbm.y = 3,family = "bernoulli",tree.complexity = 2,learning.rate = 0.08,bag.fraction = 0.75) #,family = "bernoulli",tree.complexity = 2,learning.rate = 0.01,bag.fraction = 0.75
-plot(myBRT)
+# select varibles 
+newZTGLM5 <- ZTGLM.myFD5[c(1,2,53,8:23, 37:45)]
+myBRT <- gbm.step (newZTGLM5,gbm.x = 4:28,gbm.y = 3,family = "bernoulli", tree.complexity = 5, learning.rate = 0.01, bag.fraction = 0.5)
 par(mgp=c(3,1,0),mar=c(10,12,3,2)+0.1) # set mrgins for the plot
-summary(myBRT, las=2, asp = 1)
+summary(myBRT, las=1)
+summary(myBRT)
+gbm.plot(myBRT)
 dev.off()
 par(mfrow=c(4,4))
-gbm.plot(myBRT, n.plots = 16, write.title = FALSE)
+gbm.plot(myBRT)
 #get predictions and plot full model.
 predictions <- predict(myfullstack, myBRT, n.trees=myBRT$gbm.call$best.trees, type="response") #
 plot(predictions)
 #########Now fit the reduced model by selecting covariate most infulential
-#         covariates selected from the dataset : varible 7,8,16, and 18
+#         covariates selected from the dataset;newZTGLM5 : distance_trunkandlink         distance_trunkandlink 17.6012051
+#distance_trunkandlink         distance_trunkandlink 17.6012051
+#distance_steps                       distance_steps  9.9050443
+#elev                                           elev  8.5460861
+#distance_cycleway                 distance_cycleway  7.4069327
+#distance_bridleway               distance_bridleway  7.3890307
 set.seed(125)
 myBRT.2 <- gbm.step(newZTGLM5, gbm.x = c(7, 8, 16, 18), gbm.y = 3) #Build initial model #,family = "bernoulli",tree.complexity = 2,learning.rate = 0.01,bag.fraction = 0.75
 gbm.plot(myBRT.2, n.plots = 16, write.title = FALSE)

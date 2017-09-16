@@ -32,7 +32,6 @@ hefleydata.s <- hefleydata[c("x","y")]
 hefleydata.s = as.data.frame(hefleydata.s)
 #plot(hefleydata.s)
 #select presence records
-
 #### Step 3:  extract X=vector.boot from raster anad combine wth hefleydata, presence and group varibels.####
 myFD = cbind(hefleydata.s,raster::extract(myfullstack,hefleydata.s))
 # get presence and group vriables
@@ -48,9 +47,9 @@ ZTGLM.myFD3 <- sample(seq_len(nrow(ZTGLM.myFD2)), size = 1000,replace=FALSE)#sel
 ZTGLM.myFD4 <- ZTGLM.myFD2[ZTGLM.myFD3, ] #x.int data frame now
 #This is  similar to hefley`s IWLR data set.
 ZTGLM.myFD5=rbind(ZTGLM.myFD1,ZTGLM.myFD4) 
-
+ZTGLM <- ZTGLM.myFD5
 ##### Step 6: now take a random sample of 80 and assign detected 1 non detected 0.####
-train <- sample(seq_len(nrow(ZTGLM.myFD1)), size = 40,replace=FALSE)
+train <- sample(seq_len(nrow(ZTGLM.myFD1)), size = 80,replace=FALSE)
 detected <- ZTGLM.myFD1[train, ]
 notdetected <- ZTGLM.myFD1[-train,] 
 #not detected assigned valuve 0
@@ -72,8 +71,6 @@ IPP.ignored=glm(presence~twi + tpo + temp + aspect + elev+habit2pc+hpop+lot_dens
 summary(IPP.ignored)
 ZTGLM.ignored=vglm(group~twi+tpo+temp+aspect+elev+habit2pc+hpop+lot_density+sbd,family="pospoisson", data=ZTGLM.data)
 summary(ZTGLM.ignored)
-
-
 p.det.rf = faraway::ilogit(predict(Detection.model,new=ZTGLM.data))# 
 #unclass(summary(Detection.model))
 #Hefley method GLM
@@ -81,6 +78,17 @@ set.seed(123) # we create detection probabilities using two methods. glm, rf
 #Detection model: steps as in Hefley`s code`
 Detection.model=glm(presence~  distance_pedestrian + s1_residential_dist + distance_trunkandlink +
                       distance_tertiaryandlink+ scale(group),family= "binomial", data=Detection.data)
+
+myPred = prediction(predict(Detection.model, type = "response"), Detection.data$presence)
+perf <- performance(myPred,measure = "tpr", x.measure = "fpr")
+plot(perf, colorize = T)
+summary(perf)
+
+## Stores the residuals
+Detection.data$res = residuals(Detection.model) # library(ncf)
+myResCorr <- correlog(Detection.data$x, Detection.data$y, Detection.data$res,na.rm=T, increment=10000, resamp=0, latlon = F)
+plot(myResCorr$mean.of.class[1:20], myResCorr$correlation[1:20] ,type="b", pch=16, lwd=1.5, cex = 1.2,
+     xlab="distance", ylab="Moran's I")
 
 #####Step 4: Estimate the probability of detection for each presence-only location.####
 p.det = faraway::ilogit(predict(Detection.model, type="response",new=ZTGLM.data))# chnaged myD to ZTGLM.data length =461. 3 X=vector.boot 
@@ -109,8 +117,8 @@ ZTGLM.corrected = vglm(group~twi+tpo+temp+aspect+elev+habit2pc+hpop+lot_density+
 summary(ZTGLM.corrected)
 ZTGLM.corrected
 # step 7:  Map predictions
-myPred = predict(myfullstack, Detection.model, type = "response")
-plot(myPred, xlab = "x", ylab= "y",main="detection model")
+myPred1 = predict(myfullstack, Detection.model, type = "response")
+plot(myPred1, xlab = "x", ylab= "y",main="detection model")
 plot(hefleydata.presence, add=TRUE)
 myPred2 = predict(myfullstack, IPP.corrected, type = "response")
 plot(myPred2, xlab = "x", ylab= "y",main=" IPP model-intensity of group or ??,")
@@ -215,3 +223,37 @@ colMeans(bootstrap.sample)[26]
 #change resolution. by 4. get points in each cell. treat them as groups and size.
 #<- disaggregate(meuse.raster, fact=4)
 
+pol <- rasterToPolygons(mask) 
+
+mask <- raster("mask\\mask.tif")
+mask <- aggregate(mask, fact=2)
+presence.only <- ZTGLM.myFD1[c(1,2)]
+coordinates(presence.only) <- ~x+y
+proj4string(presence.only )=CRS("+proj=utm +zone=56 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs")
+plot(mask)
+plot(presence.only, add= TRUE)
+cells <- cellFromXY(mask,presence.only)
+ADD <-as.matrix(table(cells))
+
+######### wrting tips
+# koala detection map: we corrected for detection erros. People report koalas from places where they went and found koalas.
+#This doesnt mean that it is a random sample from where koalas are present and people detected some and reported some. 
+# Detected kaoals are from a biased sample as people visit only limited areas. So our detection bias correction is 
+# should be interpreted as correcting detection bias in places where detection was was carried out. basically, we crrected
+# for detection erros in detected areas but not in undetected areas.
+
+#####
+# In the filed what can happen:
+#1. koala is found in suitabel habitat only. However, but not in all suitable habitats.
+#2. habitat suitable - koala have acccess to suitabel habitat- koala is present-  people go to that habitat- people see koala- some poeple report koala. It is a detection. but can invlove an error. as detection is not always prefect.
+#                                                                                                          - people do not see koala due to detection error/lack of experience. or due to influnce of covariates like forest type, time of the day. 
+#                                                        - koala present but moved to an another location when Pople go to that location -  So do not see koalas because it is not there. if people observe this location repetedly thye might find koalas once they return back.                                                                             
+#                                                        - koala present - people do not go to that habitat or no access conserved areas- no koala sighting records.
+#3. habitat is suitable- but koalas do not have access to that suitable habitat due to phisical barriers. So Koalas are not present. People go to suitable habitat  areas and do not see koals as koals are not present.
+#4. habitat is not suitable- koalas are not present. 
+
+#Key features of koala habitat or threshhold levels: eg. Temperature, rainfall, type of forest. etc.
+
+# Detection model/ GLM model: Probability of detecting koalas if present and people have equall access to all areas. 
+# IPP model/ GLM model= Intensity of koala groups in each grid cell. THese are groups and they have a size. 
+# ZTGLM model: or VGLM model :   Total number of koalas in each grid. Groups have sizes and this is the total of each group size.
