@@ -12,6 +12,7 @@ library(forestFloor)
 library(AUC)
 library(rgl)
 #library(dplyr)
+library(usdm)
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack")
 
 #####  Step 1: read raster data from the folder and create a stack. ####
@@ -19,6 +20,11 @@ setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack"
 myfullstack.a <- list.files(pattern="\\.tif$", full.names = TRUE) 
 myfullstack <- stack(myfullstack.a)
 plot(myfullstack)
+#variable selection
+#check the coliniarity of variables 
+v1 <- vifcor(myfullstack, th=0.9) #  identify collinear variables that should be excluded
+myfullstack <- exclude(myfullstack,v1) # exclude the collinear variables that were identified in
+#vifstep(myfullstack, th=10) # select variables which have VIF less than 10.
 #### Step 2: import koala .csv data from the full study land region. Full square study are consists of land and sea. ####
 hefleydata <- read.csv("hefley_fishnet_rastermatch2011.csv", header = TRUE) # centroids for full study area as some sros are required.
 names(hefleydata)
@@ -42,30 +48,33 @@ myFD1 = na.omit(myFD1) # remove all NA valuves
 ZTGLM.myFD1=myFD1[which(myFD1$presence==1),] # select presence data. THis will be reorganised as 0 and 1 later.
 ZTGLM.myFD2=myFD1[which(myFD1$presence==0),] # select all absence data 
 #####Step 5: select only 1000 absences (monticarlo points as in hefleys method??)####
-set.seed(12345)
+set.seed(1235)
 ZTGLM.myFD3 <- sample(seq_len(nrow(ZTGLM.myFD2)), size = 1000,replace=FALSE)#select only 1000 absences use for ipp.data
 ZTGLM.myFD4 <- ZTGLM.myFD2[ZTGLM.myFD3, ] #x.int data frame now
 #This is  similar to hefley`s IWLR data set.
 ZTGLM.myFD5=rbind(ZTGLM.myFD1,ZTGLM.myFD4) 
 ZTGLM <- ZTGLM.myFD5
-##### Step 6: now take a random sample of 80 and assign detected 1 non detected 0.####
-train <- sample(seq_len(nrow(ZTGLM.myFD1)), size = 80,replace=FALSE) # split the presence only dataset as detected and nondetected.
+
+##### Step 6: now take a random sample of n% and assign detected 1 non detected 0.####
+
+set.seed(1234)
+train <- sample(seq_len(nrow(ZTGLM.myFD1)), size = floor(0.50 * nrow(ZTGLM.myFD1)),replace=FALSE) # split the presence only dataset as detected and nondetected.
 detected <- ZTGLM.myFD1[train, ]
 notdetected <- ZTGLM.myFD1[-train,] 
 #not detected assigned valuve 0
 notdetected$presence <- 0
 ##### Step 7: Create the final data sets for the analysis####
 Detection.data= rbind(detected,notdetected)  # This dataset length is same as presence dataset.
-Detection.data[53] <- lapply(Detection.data[53], as.numeric)
+#Detection.data[53] <- lapply(Detection.data[53], as.numeric)
 str(Detection.data)
 Detection.data <- Detection.data[c(-1,-2)]
-Detection.data <- subset(Detection.data, select=c(50, 1:49, 51))
+#Detection.data <- subset(Detection.data, select=c(50, 1:49, 51))
 IPP.data=rbind(detected, ZTGLM.myFD4) #IPP.data comes from detected data plus n=1000 deteected koalas data n=80 from ZTGLM.myFD4
-IPP.data <- IPP.data[c(-1,-2,-53)]
-IPP.data <- subset(IPP.data, select=c(50, 1:49))
+#IPP.data <- IPP.data[c(-1,-2,-53)]
+#IPP.data <- subset(IPP.data, select=c(50, 1:49))
 ZTGLM.data=(detected)##ZTGLM.data# This is detected data randomly selected n= 80 .
-ZTGLM.data <- ZTGLM.data[c(-1,-2,-52)]
-ZTGLM.data <- subset(ZTGLM.data, select=c(50, 1:49))
+#ZTGLM.data <- ZTGLM.data[c(-1,-2,-52)]
+#ZTGLM.data <- subset(ZTGLM.data, select=c(50, 1:49))
 ##### Step 8:  analysis without detection correction factor#######
 IPP.ignored=glm(presence~twi + tpo + temp + aspect + elev+habit2pc+hpop+lot_density+sbd,family="binomial",weights=10000^(1-presence),data=IPP.data) # IPP.data2 added.
 summary(IPP.ignored)
@@ -77,18 +86,18 @@ p.det.rf = faraway::ilogit(predict(Detection.model,new=ZTGLM.data))#
 set.seed(123) # we create detection probabilities using two methods. glm, rf
 #Detection model: steps as in Hefley`s code`
 Detection.model=glm(presence~  distance_pedestrian + s1_residential_dist + distance_trunkandlink +
-                      distance_tertiaryandlink+ scale(group),family= "binomial", data=Detection.data)
+                      distance_tertiaryandlink+scale(group),family= "binomial", data=Detection.data)
 
-myPred = prediction(predict(Detection.model, type = "response"), Detection.data$presence)
-perf <- performance(myPred,measure = "tpr", x.measure = "fpr")
-plot(perf, colorize = T)
-summary(perf)
+#myPred = prediction(predict(Detection.model, type = "response"), Detection.data$presence)
+#perf <- performance(myPred,measure = "tpr", x.measure = "fpr")
+#plot(perf, colorize = T)
+#summary(perf)
 
 ## Stores the residuals
-Detection.data$res = residuals(Detection.model) # library(ncf)
-myResCorr <- correlog(Detection.data$x, Detection.data$y, Detection.data$res,na.rm=T, increment=10000, resamp=0, latlon = F)
-plot(myResCorr$mean.of.class[1:20], myResCorr$correlation[1:20] ,type="b", pch=16, lwd=1.5, cex = 1.2,
-     xlab="distance", ylab="Moran's I")
+#Detection.data$res = residuals(Detection.model) # library(ncf)
+#myResCorr <- correlog(Detection.data$x, Detection.data$y, Detection.data$res,na.rm=T, increment=10000, resamp=0, latlon = F)
+#plot(myResCorr$mean.of.class[1:20], myResCorr$correlation[1:20] ,type="b", pch=16, lwd=1.5, cex = 1.2,
+#     xlab="distance", ylab="Moran's I")
 
 #####Step 4: Estimate the probability of detection for each presence-only location.####
 p.det = faraway::ilogit(predict(Detection.model, type="response",new=ZTGLM.data))# chnaged myD to ZTGLM.data length =461. 3 X=vector.boot 
@@ -104,11 +113,18 @@ ZTGLM.data$p.det=p.det
 IPP.corrected= glm(presence~twi + tpo + temp + aspect + elev+habit2pc+hpop+lot_density+sbd,
                    family="binomial",data=IPP.data)
 summary(IPP.corrected)
-
+IPP.ignored$aic
 # broom package: used tidy to get a table from model outputs. This doesnt work for VGLMs.
 # get confidence intervals
-confidenceintervals <- confint(IPP.corrected)
-tidy(IPP.corrected,confidenceintervals)
+confidenceintervals <- confint(IPP.ignored)
+tidy(IPP.ignored,confidenceintervals)
+summary(IPP.ignored)
+#vialise response vs covariates.
+plot(IPP.data$lot_density ,fitted(IPP.ignored),xlab='lot',
+     ylab='Occurrence')
+histogram(IPP.data$lot_density ,fitted(IPP.corrected),xlab='lot',
+     ylab='Occurrence', add = TRUE, col="red")
+
 ####Step 6: Fit an zero-truncated Poisson generalized linear model that weights the log-likelihood by 1/p.det.####
 
 #use only the significant covariates, tpo +hpop+lot_density+sbd
