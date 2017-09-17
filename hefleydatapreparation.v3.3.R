@@ -49,21 +49,21 @@ ZTGLM.myFD4 <- ZTGLM.myFD2[ZTGLM.myFD3, ] #x.int data frame now
 ZTGLM.myFD5=rbind(ZTGLM.myFD1,ZTGLM.myFD4) 
 ZTGLM <- ZTGLM.myFD5
 ##### Step 6: now take a random sample of 80 and assign detected 1 non detected 0.####
-train <- sample(seq_len(nrow(ZTGLM.myFD1)), size = 80,replace=FALSE)
+train <- sample(seq_len(nrow(ZTGLM.myFD1)), size = 80,replace=FALSE) # split the presence only dataset as detected and nondetected.
 detected <- ZTGLM.myFD1[train, ]
 notdetected <- ZTGLM.myFD1[-train,] 
 #not detected assigned valuve 0
 notdetected$presence <- 0
 ##### Step 7: Create the final data sets for the analysis####
-Detection.data= rbind(detected,notdetected) 
+Detection.data= rbind(detected,notdetected)  # This dataset length is same as presence dataset.
 Detection.data[53] <- lapply(Detection.data[53], as.numeric)
 str(Detection.data)
 Detection.data <- Detection.data[c(-1,-2)]
 Detection.data <- subset(Detection.data, select=c(50, 1:49, 51))
-IPP.data=rbind(detected, ZTGLM.myFD4) #IPP.data comes from detected data plus no koalas data from myFD1.
+IPP.data=rbind(detected, ZTGLM.myFD4) #IPP.data comes from detected data plus n=1000 deteected koalas data n=80 from ZTGLM.myFD4
 IPP.data <- IPP.data[c(-1,-2,-53)]
 IPP.data <- subset(IPP.data, select=c(50, 1:49))
-ZTGLM.data=(detected)##ZTGLM.data# get the 80 rows selected.
+ZTGLM.data=(detected)##ZTGLM.data# This is detected data randomly selected n= 80 .
 ZTGLM.data <- ZTGLM.data[c(-1,-2,-52)]
 ZTGLM.data <- subset(ZTGLM.data, select=c(50, 1:49))
 ##### Step 8:  analysis without detection correction factor#######
@@ -104,6 +104,7 @@ ZTGLM.data$p.det=p.det
 IPP.corrected= glm(presence~twi + tpo + temp + aspect + elev+habit2pc+hpop+lot_density+sbd,
                    family="binomial",data=IPP.data)
 summary(IPP.corrected)
+
 # broom package: used tidy to get a table from model outputs. This doesnt work for VGLMs.
 # get confidence intervals
 confidenceintervals <- confint(IPP.corrected)
