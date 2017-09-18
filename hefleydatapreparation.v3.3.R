@@ -19,7 +19,7 @@ setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack"
 
 myfullstack.a <- list.files(pattern="\\.tif$", full.names = TRUE) 
 myfullstack <- stack(myfullstack.a)
-plot(myfullstack)
+#plot(myfullstack)
 #### Step 2: import koala .csv data from the full study land region. Full square study are consists of land and sea. ####
 hefleydata <- read.csv("hefley_fishnet_rastermatch2011.csv", header = TRUE) # centroids for full study area as some sros are required.
 names(hefleydata)
@@ -43,7 +43,7 @@ myFD1 = na.omit(myFD1) # remove all NA valuves
 ZTGLM.myFD1=myFD1[which(myFD1$presence==1),] # select presence data. THis will be reorganised as 0 and 1 later.
 ZTGLM.myFD2=myFD1[which(myFD1$presence==0),] # select all absence data 
 #####Step 5: select only 1000 absences (monticarlo points as in hefleys method??)####
-set.seed(1235)
+set.seed(12356)
 ZTGLM.myFD3 <- sample(seq_len(nrow(ZTGLM.myFD2)), size = 1000,replace=FALSE)#select only 1000 absences use for ipp.data
 ZTGLM.myFD4 <- ZTGLM.myFD2[ZTGLM.myFD3, ] #x.int data frame now
 #This is  similar to hefley`s IWLR data set.
@@ -62,7 +62,7 @@ notdetected$presence <- 0
 Detection.data= rbind(detected,notdetected)  # This dataset length is same as presence dataset.
 #Detection.data[53] <- lapply(Detection.data[53], as.numeric)
 str(Detection.data)
-Detection.data <- Detection.data[c(-1,-2)]
+#Detection.data <- Detection.data[c(-1,-2)]
 #Detection.data <- subset(Detection.data, select=c(50, 1:49, 51))
 IPP.data=rbind(detected, ZTGLM.myFD4) #IPP.data comes from detected data plus n=1000 deteected koalas data n=80 from ZTGLM.myFD4
 #IPP.data <- IPP.data[c(-1,-2,-53)]
@@ -70,21 +70,21 @@ IPP.data=rbind(detected, ZTGLM.myFD4) #IPP.data comes from detected data plus n=
 ZTGLM.data=(detected)##ZTGLM.data# This is detected data randomly selected n= 80 .
 #ZTGLM.data <- ZTGLM.data[c(-1,-2,-52)]
 #ZTGLM.data <- subset(ZTGLM.data, select=c(50, 1:49))
+
+
+# Selection of explanatory varibaels based on VIF#
+vifstep(myfullstack, th=10) # select variables which have Varience inflation Factor less than 10.
+
 ##### Step 8:  analysis without detection correction factor#######
 IPP.ignored=glm(presence~twi + tpo + temp + aspect + elev+habit2pc+hpop+lot_density+sbd,family="binomial",weights=10000^(1-presence),data=IPP.data) # IPP.data2 added.
 summary(IPP.ignored)
 ZTGLM.ignored=vglm(group~twi+tpo+temp+aspect+elev+habit2pc+hpop+lot_density+sbd,family="pospoisson", data=ZTGLM.data)
 summary(ZTGLM.ignored)
-p.det.rf = faraway::ilogit(predict(Detection.model,new=ZTGLM.data))# 
 #unclass(summary(Detection.model))
 #Hefley method GLM
 set.seed(123) # we create detection probabilities using two methods. glm, rf
 #Detection model: steps as in Hefley`s code`
-Detection.model=step(glm(presence~Dis_habitat_suitable_1+Dis_habitat_suitable_2+Dis_habitat_suitable_3+
-                             distance_bridleway+distance_motorwayandlink+distance_path+distance_pedestrian+
-                             distance_primaryandlink+distance_residentil+distance_secondaryandlink+distance_tertiaryandlink+
-                             distance_trunkandlink+ distance_unclassified+s1_residential_dist+s1_unclassified_dist+s2_residential_dist+
-                             s2_unclassified_dist+s3_residential_dist +scale(group), family= "binomial", data=Detection.data))
+
 Detection.model=glm(presence~  distance_pedestrian + s1_residential_dist + distance_trunkandlink +
                       distance_tertiaryandlink+scale(group),family= "binomial", data=Detection.data)
 
@@ -94,25 +94,29 @@ summary(Detection.model)
 #plot(perf, colorize = T)
 #summary(perf)
 
-## Stores the residuals
-#Detection.data$res = residuals(Detection.model) # library(ncf)
-#myResCorr <- correlog(Detection.data$x, Detection.data$y, Detection.data$res,na.rm=T, increment=10000, resamp=0, latlon = F)
-#plot(myResCorr$mean.of.class[1:20], myResCorr$correlation[1:20] ,type="b", pch=16, lwd=1.5, cex = 1.2,
-#     xlab="distance", ylab="Moran's I")
+## Stores the residuals  plot corellagram 
+Detection.data$res = residuals(Detection.model) # library(ncf)
+myResCorr <- correlog(Detection.data$x, Detection.data$y, Detection.data$res,na.rm=T, increment=1000, resamp=0, latlon = F)
+plot(myResCorr$mean.of.class[1:100], myResCorr$correlation[1:100] ,type="b", pch=16, lwd=1.5, cex = 1.2,
+     xlab="distance", ylab="Moran's I")
+
+#rerun the modelwith residuals: looks awfull. inst it. use crase approach for auto corelation. have to refer his paper for this. 
+Detection.model.1=glm(presence~  distance_pedestrian + s1_residential_dist + distance_trunkandlink +
+                      distance_tertiaryandlink + res + scale(group),family= "binomial", data=Detection.data)
+
+summary(Detection.model.1)
 
 #####Step 4: Estimate the probability of detection for each presence-only location.####
-p.det = faraway::ilogit(predict(Detection.model, type="response",new=ZTGLM.data))# chnaged myD to ZTGLM.data length =461. 3 X=vector.boot 
+p.det = faraway::ilogit(predict(Detection.model, type="response", new=ZTGLM.data))# chnaged myD to ZTGLM.data length =461. 3 X=vector.boot 
 #myBRT,n.trees=myBRT$gbm.call$best.trees ; add this as model in the above function.
 
 hist(p.det, breaks=100)
 IPP.data$p.det=c(p.det,rep(1,length(ZTGLM.myFD3)))
-#IPP.data$p.det=p.det   # IPP.data number of obserarions=1461
 ZTGLM.data$p.det=p.det
 
 ######Step 5: - Fit an inhomogeneous Poisson point process  that weights the log-likelihood by 1/p.det . ####
-#use step function here then use significant variable in the next model. or else go to line 79. I asume this is correct way to do it.
 IPP.corrected= glm(presence~twi + tpo + temp + aspect + elev+habit2pc+hpop+lot_density+sbd,
-                   family="binomial",data=IPP.data)
+                   family="binomial",weights=(1/p.det)*10000^(1-presence),data=IPP.data)
 
 summary(IPP.corrected)
 IPP.ignored$aic
@@ -140,12 +144,12 @@ myPred1 = predict(myfullstack, Detection.model, type = "response")
 plot(myPred1, xlab = "x", ylab= "y",main="detection model")
 plot(hefleydata.presence, add=TRUE)
 myPred2 = predict(myfullstack, IPP.corrected, type = "response")
-plot(myPred2, xlab = "x", ylab= "y",main=" IPP model-intensity of group or ??,")
+plot(myPred2, xlab = "x", ylab= "y",main=" IPP model-intensity of group")
 plot(hefleydata.presence, add=TRUE)
 myPred3.1 = predict(myfullstack, ZTGLM.corrected, type = "response")
 plot(myPred3.1,  main="ZTGLM-Number of koalas in a grid - VGLM ")
 plot(hefleydata.presence, add=TRUE)
-writeRaster(myPred3, "ZTGLM.tif")
+#writeRaster(myPred3, "ZTGLM.tif")
 dev.off()
 ####
 
@@ -166,7 +170,7 @@ dev.off()
 set.seed(1234)
 tpnbs=function()	{
   bss=resample(1:dim(ZTGLM.data)[1])
-  IPP.data.bss=rbind(IPP.data[bss,1:53],IPP.data[which(IPP.data$presence==0),1:53])
+  IPP.data.bss=rbind(IPP.data[bss,1:54],IPP.data[which(IPP.data$presence==0),1:54])
   ZTGLM.data.bss=ZTGLM.data[bss,]
   
   Detection.data.bss=resample(Detection.data)
@@ -258,12 +262,14 @@ ADD <-as.matrix(table(cells))
 # koala detection map: we corrected for detection erros. People report koalas from places where they went and found koalas.
 #This doesnt mean that it is a random sample from where koalas are present and people detected some and reported some. 
 # Detected kaoals are from a biased sample as people visit only limited areas. So our detection bias correction is 
-# should be interpreted as correcting detection bias in places where detection was was carried out. basically, we crrected
-# for detection erros in detected areas but not in undetected areas.
+# should be interpreted as correcting detection bias in places where detection was was carried out. basically, we corrected
+# for detection erros in detected areas but not in undetected areas our model resilved this. IF we use more spatially spread 
+# dataset with fw years of data then this model may behave well.
 
 #####
-# In the filed what can happen:
-#1. koala is found in suitabel habitat only. However, but not in all suitable habitats.
+# In the field what could happe
+#1. koala is found in suitabel habitat only. This iclude biotic and abitic enviroment is suitable.
+#   However, but not in all suitable habitats due to unsuitable abiotic enviroment. orcompetitio or threat.
 #2. habitat suitable - koala have acccess to suitabel habitat- koala is present-  people go to that habitat- people see koala- some poeple report koala. It is a detection. but can invlove an error. as detection is not always prefect.
 #                                                                                                          - people do not see koala due to detection error/lack of experience. or due to influnce of covariates like forest type, time of the day. 
 #                                                        - koala present but moved to an another location when Pople go to that location -  So do not see koalas because it is not there. if people observe this location repetedly thye might find koalas once they return back.                                                                             
@@ -274,6 +280,9 @@ ADD <-as.matrix(table(cells))
 #Key features of koala habitat or threshhold levels: eg. Temperature, rainfall, type of forest. etc.
 
 # Detection model/ GLM model: Probability of detecting koalas if present and people have equall access to all areas. 
-# IPP model/ GLM model= Intensity of koala groups in each grid cell. THese are groups and they have a size. 
+# IPP model/ GLM model= Intensity of koala groups in each grid cell. 
+# and they have a size. These are number of groups and they have a size. Better approach would be to increase number of 
+#sightings adding more sightings from other years. Then instead of 1000 k grids, create smaller grids say 1/4 th of 1000k, count the number of kolas in each small grid and consider them as groups.
+#Then ZTGLM model which will be modelled at 1000k grid will give us the total count of koalas @ 1000k grid. 
 # ZTGLM model: or VGLM model :   Total number of koalas in each grid. Groups have sizes and this is the total of each group size.
 
