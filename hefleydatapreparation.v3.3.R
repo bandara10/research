@@ -13,6 +13,7 @@ library(AUC)
 library(rgl)
 #library(dplyr)
 library(usdm)
+library(ROCR)
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack")
 
 #####  Step 1: read raster data from the folder and create a stack. ####
@@ -60,20 +61,13 @@ notdetected <- ZTGLM.myFD1[-train,]
 notdetected$presence <- 0
 ##### Step 7: Create the final data sets for the analysis####
 Detection.data= rbind(detected,notdetected)  # This dataset length is same as presence dataset.
-#Detection.data[53] <- lapply(Detection.data[53], as.numeric)
-str(Detection.data)
-#Detection.data <- Detection.data[c(-1,-2)]
-#Detection.data <- subset(Detection.data, select=c(50, 1:49, 51))
 IPP.data=rbind(detected, ZTGLM.myFD4) #IPP.data comes from detected data plus n=1000 deteected koalas data n=80 from ZTGLM.myFD4
-#IPP.data <- IPP.data[c(-1,-2,-53)]
-#IPP.data <- subset(IPP.data, select=c(50, 1:49))
-ZTGLM.data=(detected)##ZTGLM.data# This is detected data randomly selected n= 80 .
-#ZTGLM.data <- ZTGLM.data[c(-1,-2,-52)]
-#ZTGLM.data <- subset(ZTGLM.data, select=c(50, 1:49))
+ZTGLM.data=(detected)##ZTGLM.data# This is detected data randomly selected n= 50% .
+
 
 
 # Selection of explanatory varibaels based on VIF#
-vifstep(myfullstack, th=10) # select variables which have Varience inflation Factor less than 10.
+vifstep(myfullstack, th=10) # select variables which have Varience nflation Factor less than 10.
 
 ##### Step 8:  analysis without detection correction factor#######
 IPP.ignored=glm(presence~twi + tpo + temp + aspect + elev+habit2pc+hpop+lot_density+sbd,family="binomial",weights=10000^(1-presence),data=IPP.data) # IPP.data2 added.
@@ -81,20 +75,37 @@ summary(IPP.ignored)
 ZTGLM.ignored=vglm(group~twi+tpo+temp+aspect+elev+habit2pc+hpop+lot_density+sbd,family="pospoisson", data=ZTGLM.data)
 summary(ZTGLM.ignored)
 #unclass(summary(Detection.model))
+
+##### perform forward selection by specifying a starting model and the range of models which we want to examine in the search.#### 
+null=glm(presence~1, family= "binomial", data=Detection.data) # null model
+full=glm(presence ~  Dis_habitat_suitable_1+Dis_habitat_suitable_2+Dis_habitat_suitable_3+distance_bridleway+distance_motorwayandlink+distance_path+distance_pedestrian
+         +distance_primaryandlink+distance_residentil+distance_secondaryandlink+distance_tertiaryandlink+distance_trunkandlink+distance_unclassified
+         +s1_residential_dist+s1_unclassified_dist+s2_residential_dist+s2_unclassified_dist+s3_residential_dist+habit1+habit2+habit3+aspect+awc+clay+elev+
+           fpc+group+habit1pc+habit2pc+habit3pc+hpop+lot_density+nitro+roadk+sbd+temp+tpo+twi+ scale(group),
+          family= "binomial", data=Detection.data) # full set of explanatory varibales.
+# perform forward selection using the command step
+step(null, scope=list(lower=null, upper=full), direction="forward")
+### model slection in this way did not give valid results in predictions and maps. hwo to use selected variables.
+###
+####   #####
+
 #Hefley method GLM
 set.seed(123) # we create detection probabilities using two methods. glm, rf
 #Detection model: steps as in Hefley`s code`
-
-Detection.model=glm(presence~  distance_pedestrian + s1_residential_dist + distance_trunkandlink +
+Detection.model=glm(presence~  distance_pedestrian + s1_residential_dist + distance_trunkandlink+
                       distance_tertiaryandlink+scale(group),family= "binomial", data=Detection.data)
-
 summary(Detection.model)
-#myPred = prediction(predict(Detection.model, type = "response"), Detection.data$presence)
-#perf <- performance(myPred,measure = "tpr", x.measure = "fpr")
-#plot(perf, colorize = T)
-#summary(perf)
+# check the prediction map right here.
+myPred1 = predict(myfullstack, Detection.model, type = "response")
+plot(myPred1, xlab = "x", ylab= "y",main="detection model")
+plot(hefleydata.presence,pch=1, add=TRUE)
+###### #######
+myPred = prediction(predict(Detection.model, type = "response"), Detection.data$presence)
+perf <- performance(myPred,measure = "tpr", x.measure = "fpr")
+plot(perf, colorize = T)
 
-## Stores the residuals  plot corellagram 
+#######
+##### Stores the residuals  plot corellagram ####
 Detection.data$res = residuals(Detection.model) # library(ncf)
 myResCorr <- correlog(Detection.data$x, Detection.data$y, Detection.data$res,na.rm=T, increment=1000, resamp=0, latlon = F)
 plot(myResCorr$mean.of.class[1:100], myResCorr$correlation[1:100] ,type="b", pch=16, lwd=1.5, cex = 1.2,
@@ -104,8 +115,8 @@ plot(myResCorr$mean.of.class[1:100], myResCorr$correlation[1:100] ,type="b", pch
 Detection.model.1=glm(presence~  distance_pedestrian + s1_residential_dist + distance_trunkandlink +
                       distance_tertiaryandlink + res + scale(group),family= "binomial", data=Detection.data)
 
-summary(Detection.model.1)
-
+summary(Detection.model.1) # not a good model.
+##### #####
 #####Step 4: Estimate the probability of detection for each presence-only location.####
 p.det = faraway::ilogit(predict(Detection.model, type="response", new=ZTGLM.data))# chnaged myD to ZTGLM.data length =461. 3 X=vector.boot 
 #myBRT,n.trees=myBRT$gbm.call$best.trees ; add this as model in the above function.
@@ -115,44 +126,43 @@ IPP.data$p.det=c(p.det,rep(1,length(ZTGLM.myFD3)))
 ZTGLM.data$p.det=p.det
 
 ######Step 5: - Fit an inhomogeneous Poisson point process  that weights the log-likelihood by 1/p.det . ####
+
 IPP.corrected= glm(presence~twi + tpo + temp + aspect + elev+habit2pc+hpop+lot_density+sbd,
                    family="binomial",weights=(1/p.det)*10000^(1-presence),data=IPP.data)
 
 summary(IPP.corrected)
-IPP.ignored$aic
+
 # broom package: used tidy to get a table from model outputs. This doesnt work for VGLMs.
-# get confidence intervals
+# get confidence intervals and compare ignored and corrected models.
 confidenceintervals <- confint(IPP.ignored)
 tidy(IPP.ignored,confidenceintervals)
 summary(IPP.ignored)
-#vialise response vs covariates.
-plot(IPP.data$lot_density ,fitted(IPP.ignored),xlab='lot',
-     ylab='Occurrence')
+
+#visualise response vs covariates eg. lot density.
 histogram(IPP.data$lot_density ,fitted(IPP.corrected),xlab='lot',
      ylab='Occurrence', add = TRUE, col="red")
-
 ####Step 6: Fit an zero-truncated Poisson generalized linear model that weights the log-likelihood by 1/p.det.####
 
 #use only the significant covariates, tpo +hpop+lot_density+sbd
 # VGAM: read about which family to use: https://www.r-project.org/doc/Rnews/Rnews_2008-2.pdf
-ZTGLM.corrected = vglm(group~twi+tpo+temp+aspect+elev+habit2pc+hpop+lot_density+sbd
+ZTGLM.corrected = vglm(group~twi + tpo + temp + aspect + elev+habit2pc+hpop+lot_density+sbd
                        ,weights=1/p.det,family="pospoisson",data=ZTGLM.data) # zapoisson
+
 summary(ZTGLM.corrected)
-ZTGLM.corrected
 # step 7:  Map predictions
 myPred1 = predict(myfullstack, Detection.model, type = "response")
 plot(myPred1, xlab = "x", ylab= "y",main="detection model")
-plot(hefleydata.presence, add=TRUE)
+plot(hefleydata.presence, pch=1,add=TRUE)
 myPred2 = predict(myfullstack, IPP.corrected, type = "response")
 plot(myPred2, xlab = "x", ylab= "y",main=" IPP model-intensity of group")
-plot(hefleydata.presence, add=TRUE)
+plot(hefleydata.presence,pch=1, add=TRUE)
 myPred3.1 = predict(myfullstack, ZTGLM.corrected, type = "response")
 plot(myPred3.1,  main="ZTGLM-Number of koalas in a grid - VGLM ")
-plot(hefleydata.presence, add=TRUE)
+plot(hefleydata.presence,pch=1, add=TRUE)
 #writeRaster(myPred3, "ZTGLM.tif")
 dev.off()
 ####
-
+unlist(ZTGLM.corrected@predictors)> .02
 #	Calculating mean, standard deviation and 95%, equal-tailed confidence intervals
 #	from the empirical distribution. See "Introduction to the Bootstrap" (Efron & Tibshirani 1994) 
 #	for more details.
@@ -243,22 +253,7 @@ colMeans(bootstrap.sample)[25]
 colMeans(bootstrap.sample)[26]
 
  
-#change resolution. by 4. get points in each cell. treat them as groups and size.
-#<- disaggregate(meuse.raster, fact=4)
-
-pol <- rasterToPolygons(mask) 
-
-mask <- raster("mask\\mask.tif")
-mask <- aggregate(mask, fact=2)
-presence.only <- ZTGLM.myFD1[c(1,2)]
-coordinates(presence.only) <- ~x+y
-proj4string(presence.only )=CRS("+proj=utm +zone=56 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs")
-plot(mask)
-plot(presence.only, add= TRUE)
-cells <- cellFromXY(mask,presence.only)
-ADD <-as.matrix(table(cells))
-
-######### wrting tips
+######### discussion points ########
 # koala detection map: we corrected for detection erros. People report koalas from places where they went and found koalas.
 #This doesnt mean that it is a random sample from where koalas are present and people detected some and reported some. 
 # Detected kaoals are from a biased sample as people visit only limited areas. So our detection bias correction is 
