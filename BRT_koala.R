@@ -85,14 +85,14 @@ plot(predictions)
 #distance_cycleway                 distance_cycleway  7.4069327
 #distance_bridleway               distance_bridleway  7.3890307
 set.seed(125)
-myBRT.2 <- gbm.step(newZTGLM5, gbm.x = c(7, 8, 16, 18), gbm.y = 3) #Build initial model #,family = "bernoulli",tree.complexity = 2,learning.rate = 0.01,bag.fraction = 0.75
-gbm.plot(myBRT.2, n.plots = 16, write.title = FALSE)
-summary(myBRT.2, las=2, asp = 1)
+myBRT.2 <- gbm.step(newZTGLM5, gbm.x = c(5,6,14,16,18), gbm.y = 3) #Build initial model #,family = "bernoulli",tree.complexity = 2,learning.rate = 0.01,bag.fraction = 0.75
+gbm.plot(myBRT.2)
+summary(myBRT.2, las=1)
 predictions.2 <- predict(myfullstack, myBRT.2, n.trees=myBRT.2$gbm.call$best.trees, type="response")
 #plot predictions
 plot(predictions.2,main="Detection proabilities ")
 plot(hefleydata.presence,  cex = 0.3,add=TRUE)
-p.det = faraway::ilogit(predict(myBRT,n.trees=myBRT$gbm.call$best.trees, type="response",new=ZTGLM.data))# chnaged myD to ZTGLM.data length =461. 3 X=vector.boot 
+p.det = faraway::ilogit(predict(myBRT.2,n.trees=myBRT$gbm.call$best.trees, type="response",new=ZTGLM.data))# chnaged myD to ZTGLM.data length =461. 3 X=vector.boot 
 hist(p.det, breaks=50)
 ZTGLM.data$p.det=p.det
 ######

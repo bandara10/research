@@ -65,8 +65,8 @@ names(Detection.data)
 
 IPP.ignored=glm(y~x,family="binomial",weights=10000^(1-y),data=IPP.data)
 summary(IPP.ignored)
-
-
+library(latex2exp)
+xtable(IPP.ignored, auto = TRUE)
 ###############################################################################
 #	Estimate the coefficient for the habitat covariate "x" for the zero truncated Poisson generalized linear model 
 #	ignoring non-detection sampling bias.
@@ -101,8 +101,8 @@ summary(ZTGLM.ignored)
 ##Step 2 - Fit an appropriate model to the detection data set
 Detection.model=glm(y~x+scale(group.size),family="binomial",data=Detection.data)
 summary(Detection.model)
-
-
+Detecion <- xtable(Detection.model, auto=TRUE)
+autoformat(Detecion)
 ##Step 4 - Estimate the probability of detection for each presence-only location.
 p.det=ilogit(predict(Detection.model,new=ZTGLM.data))
 IPP.data$p.det=c(p.det,rep(1,length(x.int)))
@@ -113,11 +113,11 @@ ZTGLM.data$p.det=p.det
 IPP.corrected=glm(y~x,family="binomial",weights=(1/p.det)*10000^(1-y),data=IPP.data)
 summary(IPP.corrected)
 
-
+ipp <- xtable(IPP.corrected)
+autoformat(ipp)
 ##Step 6 - Fit an zero-truncated Poisson generalized linear model that weights the log-likelihood by 1/p.det
 ZTGLM.corrected=vglm(group.size~x,weights=1/p.det,family="pospoisson",data=ZTGLM.data)
 summary(ZTGLM.corrected)
-
 
 ###############################################################################
 #	Implementing the two-phase nonparametric bootstrap algorithm (i.e., steps 1-7)
@@ -209,3 +209,6 @@ replayPlot(Hefley.IPP.ignored.plot)
 replayPlot(Hefley.IPP.corrected.plot)
 replayPlot(Hefley.ZTGLM.plot)
 
+a <- 5
+b <- 3
+substitute(expression(a * e^(b * x)), list(a=a, b=b))

@@ -20,11 +20,6 @@ setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack"
 myfullstack.a <- list.files(pattern="\\.tif$", full.names = TRUE) 
 myfullstack <- stack(myfullstack.a)
 plot(myfullstack)
-#variable selection
-#check the coliniarity of variables 
-v1 <- vifcor(myfullstack, th=0.9) #  identify collinear variables that should be excluded
-myfullstack <- exclude(myfullstack,v1) # exclude the collinear variables that were identified in
-#vifstep(myfullstack, th=10) # select variables which have VIF less than 10.
 #### Step 2: import koala .csv data from the full study land region. Full square study are consists of land and sea. ####
 hefleydata <- read.csv("hefley_fishnet_rastermatch2011.csv", header = TRUE) # centroids for full study area as some sros are required.
 names(hefleydata)
@@ -85,9 +80,15 @@ p.det.rf = faraway::ilogit(predict(Detection.model,new=ZTGLM.data))#
 #Hefley method GLM
 set.seed(123) # we create detection probabilities using two methods. glm, rf
 #Detection model: steps as in Hefley`s code`
+Detection.model=step(glm(presence~Dis_habitat_suitable_1+Dis_habitat_suitable_2+Dis_habitat_suitable_3+
+                             distance_bridleway+distance_motorwayandlink+distance_path+distance_pedestrian+
+                             distance_primaryandlink+distance_residentil+distance_secondaryandlink+distance_tertiaryandlink+
+                             distance_trunkandlink+ distance_unclassified+s1_residential_dist+s1_unclassified_dist+s2_residential_dist+
+                             s2_unclassified_dist+s3_residential_dist +scale(group), family= "binomial", data=Detection.data))
 Detection.model=glm(presence~  distance_pedestrian + s1_residential_dist + distance_trunkandlink +
                       distance_tertiaryandlink+scale(group),family= "binomial", data=Detection.data)
 
+summary(Detection.model)
 #myPred = prediction(predict(Detection.model, type = "response"), Detection.data$presence)
 #perf <- performance(myPred,measure = "tpr", x.measure = "fpr")
 #plot(perf, colorize = T)
@@ -112,6 +113,7 @@ ZTGLM.data$p.det=p.det
 #use step function here then use significant variable in the next model. or else go to line 79. I asume this is correct way to do it.
 IPP.corrected= glm(presence~twi + tpo + temp + aspect + elev+habit2pc+hpop+lot_density+sbd,
                    family="binomial",data=IPP.data)
+
 summary(IPP.corrected)
 IPP.ignored$aic
 # broom package: used tidy to get a table from model outputs. This doesnt work for VGLMs.
@@ -274,3 +276,4 @@ ADD <-as.matrix(table(cells))
 # Detection model/ GLM model: Probability of detecting koalas if present and people have equall access to all areas. 
 # IPP model/ GLM model= Intensity of koala groups in each grid cell. THese are groups and they have a size. 
 # ZTGLM model: or VGLM model :   Total number of koalas in each grid. Groups have sizes and this is the total of each group size.
+
