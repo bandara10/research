@@ -19,23 +19,35 @@ library(spatstat)
 
 set.seed(1234)
 x=rnorm(10^6,0,1)
+
 eta.pres=8.5+1*x
 mat=matrix(exp(eta.pres), nrow=1000, ncol=1000)
 lam=im(mat, xrange=c(0,1), yrange=c(0,1))
 points=rpoispp(lam)
-x.ipp=(log(lam[points])-8.5)/1
-x.int=rnorm(1000,0,1)		
-y.IWLR=c(rep(1,length(x.ipp)),rep(0,length(x.int)))
-IPP.data=data.frame(y=y.IWLR,x=c(x.ipp,x.int))
-eta.group=1+0.5*x.ipp
-y.ZTGLM=rpospois(length(eta.group),exp(eta.group))
-ZTGLM.data=data.frame(group.size=y.ZTGLM,x=x.ipp)
-eta.det=-2+-1*x.ipp+0.5*scale(y.ZTGLM)
-detected=rbinom(length(eta.det),1,ilogit(eta.det))
-keep=c(1:round(0.20*length(x.ipp)))
-Detection.data=data.frame(y=detected[keep],x=x.ipp[keep],group.size=y.ZTGLM[keep])	
-IPP.data=IPP.data[c(which(detected==1),which(y.IWLR==0)),]
-ZTGLM.data=ZTGLM.data[which(detected==1),]
+
+x.ipp=(log(lam[points])-8.5)/1   #num [1:8156] 1.312 1.107 1.316 0.617 2.492
+x.int=rnorm(1000,0,1)	  #montecarlo points#        #num [1:1000]   -0.0786 -1.2963 -0.2973 0.2261 1.2265
+
+y.IWLR=c(rep(1,length(x.ipp)),rep(0,length(x.int)))#num [1:9156] 0 1
+IPP.data=data.frame(y=y.IWLR,x=c(x.ipp,x.int))   #9156 obs. of  2 variables: y , x.
+
+eta.group=1+0.5*x.ipp  #num [1:8156] 1.66 1.55 1.66 1.31 2.25
+y.ZTGLM=rpospois(length(eta.group),exp(eta.group)) #num [1:8156] 1 8 3 2 8 2 4 3 6 3
+ZTGLM.data=data.frame(group.size=y.ZTGLM,x=x.ipp) #8156 obs. of  2 variables:
+#                                                 $ group.size: num  1 8 3 2 8 2 4 3 6 3 ...
+#                                                 $ x         : num  1.312 1.107 1.316 0.617 2.492 
+
+eta.det=-2+-1*x.ipp+0.5*scale(y.ZTGLM)  #num [1:8156, 1] -3.92 -2.7 -3.63 -3.08 -4.09 ...
+                                        #- attr(*, "scaled:center")= num 5.2
+                                        #- attr(*, "scaled:scale")= num 3.45
+detected=rbinom(length(eta.det),1,ilogit(eta.det)) #int [1:8156] 0 0 0 0 0 0 0 0 0 0
+keep=c(1:round(0.20*length(x.ipp)))  #20% selected           #int [1:1631] 1 2 3 4 5 6 7 8 9 10
+
+Detection.data=data.frame(y=detected[keep],x=x.ipp[keep],group.size=y.ZTGLM[keep]) # 20% data #1631 obs. of  3 variables: y,x, group.size
+
+IPP.data=IPP.data[c(which(detected==1),which(y.IWLR==0)),]  ##1499 obs. of  2 variables y, x 
+
+ZTGLM.data=ZTGLM.data[which(detected==1),]      ##499 obs. of  2 variables: group.size, x.
 
 ###############################################################################
 #	Examine the example data 
