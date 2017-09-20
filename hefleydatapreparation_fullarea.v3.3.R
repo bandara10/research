@@ -18,12 +18,14 @@ setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_syn")
 
 # raster fpc has na valuves. change this to 0.
 #set fpc na values to 0: this will chage sea areaalso to 0. 
-fpc <-  raster("fpc.tif")
+fpc <-  raster("DP_QLD_FPC20141.tif")
 plot(fpc)
 fpc[is.na(fpc[])] <- 0
-mask <- raster("mask\\mask.tif")
+mask <- raster("PTO_100_200.tif")
+values(mask)[values(mask) > 0] = 0
 plot(mask)
 fpc.corrected <- fpc+ mask
+plot(fpc.corrected)
 writeRaster(fpc.corrected, "fpc.corrected.tif")
 #####  Step 1: read raster data from the folder and create a stack. ####
 
@@ -105,7 +107,7 @@ step(null, scope=list(lower=null, upper=full), direction="forward")
 ####   #####
 logistic
 #Hefley method GLM
-set.seed(1232) # we create detection probabilities using two methods. glm, rf
+set.seed(1238) # we create detection probabilities using two methods. glm, rf
 #Detection model: steps as in Hefley`s code`
 Detection.model=glm(presence~  distance_pedestrian + s1_residential_dist + distance_trunkandlink+
                       distance_tertiaryandlink, family= "binomial", data=Detection.data)

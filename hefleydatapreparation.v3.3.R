@@ -15,7 +15,7 @@ library(rgl)
 library(usdm)
 library(ROCR)
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack")
-# raster fpc has na valuves. change this to 0.
+# raster fpc has na valuves in the study area which create problems. change this to 0.
 #set fpc na values to 0: this will chage sea areaalso to 0. 
 fpc <-  raster("fpc.tif")
 plot(fpc)
@@ -23,8 +23,8 @@ fpc[is.na(fpc[])] <- 0
 mask <- raster("mask\\mask.tif")
 plot(mask)
 fpc.corrected <- fpc+ mask
-writeRaster(fpc.corrected, "fpc.corrected.tif")
-
+#writeRaster(fpc.corrected, "fpc.corrected.tif")
+# detectionstack folder is used here to create the stack for detectiom model. Do not use the fullstack.
 myfullstack.b <- list.files(pattern="\\.tif$", full.names = TRUE) 
 myfullstack <- stack(myfullstack.b)
 #####  Step 1: read raster data from the folder and create a stack. ####
