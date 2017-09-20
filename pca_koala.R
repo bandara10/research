@@ -10,7 +10,7 @@ biplot(pca)
 biplot(pca, choices = 2:3)
 
 
-# for the raster stack first tow PCA.
+# for the raster stack first two PCA.
 r.val <- getValues(myfullstack)# all raster valuves
 is.na(r.val) <- sapply(r.val, is.infinite) # convert infinite to na
 r.val = na.omit(r.val) # omint na valuves

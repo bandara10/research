@@ -14,13 +14,13 @@ myfullstack <- exclude(myfullstack,v1) # exclude the collinear variables that we
 vifstep(myfullstack, th=10) # select variables which have VIF less than 10.
 
 #select the best detection model.
-myvariables=(presence~Dis_habitat_suitable_1+Dis_habitat_suitable_2+Dis_habitat_suitable_3+distance_bridleway+distance_motorwayandlink+
-               distance_path+distance_pedestrian+distance_primaryandlink+distance_residentil+distance_secondaryandlink+
-               distance_tertiaryandlink+distance_trunkandlink+distance_unclassified+s1_residential_dist+
-               s1_unclassified_dist+s2_residential_dist+s2_unclassified_dist+s3_residential_dist+habit1+habit2+habit3+scale(group))
 
-Detection.model.s =step(glm (myvariables,family= "binomial", data=Detection.data))
-
+Detection.model.s =glm (presence~Dis_habitat_suitable_1+Dis_habitat_suitable_2+Dis_habitat_suitable_3+distance_bridleway+distance_motorwayandlink+
+                               distance_path+distance_pedestrian+distance_primaryandlink+distance_residentil+distance_secondaryandlink+
+                               distance_tertiaryandlink+distance_trunkandlink+distance_unclassified+s1_residential_dist+
+                               s1_unclassified_dist+s2_residential_dist+s2_unclassified_dist+s3_residential_dist+habit1+habit2+
+                          habit3+scale(group),family= "binomial", data=Detection.data)
+summary(Detection.model.s)
 ######Step 5 - Fit an inhomogeneous Poisson point process  that weights the log-likelihood by 1/p.det . ####
 #use step function here then use significant variable in the next model. or else go to line 79. I asume this is correct way to do it.
 IPP.corrected.1= step(glm(presence~twi+tpo+temp +aspect+awc+clay+elev+fpc+habit2pc+hpop+

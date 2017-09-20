@@ -23,7 +23,7 @@ names(hefleydata)
 # plot koala presence locations
 hefleydata.presence <-subset(hefleydata, presence==1)
 coordinates(hefleydata.presence) <- ~x+y
-plot(hefleydata.presence, add=TRUE)
+plot(hefleydata.presence, pch=1)
 # get only coordinates from dataset.
 hefleydata.s <- hefleydata[c("x","y")]
 hefleydata.s = as.data.frame(hefleydata.s)
@@ -47,7 +47,7 @@ ZTGLM.myFD4 <- ZTGLM.myFD2[ZTGLM.myFD3, ] #x.int data frame now
 ZTGLM.myFD5=rbind(ZTGLM.myFD1,ZTGLM.myFD4) 
 ###
 ##### Step 6: now take a random sample of 80 and assign detected 1 non detected 0.####
-train <- sample(seq_len(nrow(ZTGLM.myFD1)), size = 80,replace=FALSE)
+train <- sample(seq_len(nrow(ZTGLM.myFD1)), size = floor(0.50 * nrow(ZTGLM.myFD1)),replace=FALSE)
 detected <- ZTGLM.myFD1[train, ]
 notdetected <- ZTGLM.myFD1[-train,] 
 #not detected assigned valuve 0

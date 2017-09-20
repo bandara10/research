@@ -1,4 +1,3 @@
-setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_syn")
 ##### load libraries ####
 library(spatial.tools)
 library(VGAM)
@@ -15,10 +14,17 @@ library(rgl)
 #library(dplyr)
 library(usdm)
 library(ROCR)
-setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack")
+setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_syn")
 
-
-
+# raster fpc has na valuves. change this to 0.
+#set fpc na values to 0: this will chage sea areaalso to 0. 
+fpc <-  raster("fpc.tif")
+plot(fpc)
+fpc[is.na(fpc[])] <- 0
+mask <- raster("mask\\mask.tif")
+plot(mask)
+fpc.corrected <- fpc+ mask
+writeRaster(fpc.corrected, "fpc.corrected.tif")
 #####  Step 1: read raster data from the folder and create a stack. ####
 
 myfullstack.a <- list.files(pattern="\\.tif$", full.names = TRUE) 
@@ -97,12 +103,15 @@ step(null, scope=list(lower=null, upper=full), direction="forward")
 ### model slection in this way did not give valid results in predictions and maps. hwo to use selected variables.
 ###
 ####   #####
-
+logistic
 #Hefley method GLM
-set.seed(123) # we create detection probabilities using two methods. glm, rf
+set.seed(1232) # we create detection probabilities using two methods. glm, rf
 #Detection model: steps as in Hefley`s code`
 Detection.model=glm(presence~  distance_pedestrian + s1_residential_dist + distance_trunkandlink+
-                      distance_tertiaryandlink,family= "binomial", data=Detection.data)
+                      distance_tertiaryandlink, family= "binomial", data=Detection.data)
+
+
+
 
 summary(Detection.model)
 # check the prediction map right here.
@@ -137,7 +146,7 @@ ZTGLM.data$p.det=p.det
 
 ######Step 5: - Fit an inhomogeneous Poisson point process  that weights the log-likelihood by 1/p.det . ####
 
-IPP.corrected= glm(presence~twi + tpo + temp + aspect + elev+habit2pc+hpop+lot_density+sbd,
+IPP.corrected= glm(presence~twi + tpo + temp + aspect + dem+habit2pc+hpop+lot_density+sbd,
                    family="binomial",weights=(1/p.det)*10000^(1-presence),data=IPP.data)
 
 summary(IPP.corrected)

@@ -15,7 +15,18 @@ library(rgl)
 library(usdm)
 library(ROCR)
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack")
+# raster fpc has na valuves. change this to 0.
+#set fpc na values to 0: this will chage sea areaalso to 0. 
+fpc <-  raster("fpc.tif")
+plot(fpc)
+fpc[is.na(fpc[])] <- 0
+mask <- raster("mask\\mask.tif")
+plot(mask)
+fpc.corrected <- fpc+ mask
+writeRaster(fpc.corrected, "fpc.corrected.tif")
 
+myfullstack.b <- list.files(pattern="\\.tif$", full.names = TRUE) 
+myfullstack <- stack(myfullstack.b)
 #####  Step 1: read raster data from the folder and create a stack. ####
 
 myfullstack.a <- list.files(pattern="\\.tif$", full.names = TRUE) 
@@ -64,8 +75,14 @@ Detection.data= rbind(detected,notdetected)  # This dataset length is same as pr
 IPP.data=rbind(detected, ZTGLM.myFD4) #IPP.data comes from detected data plus n=1000 deteected koalas data n=80 from ZTGLM.myFD4
 ZTGLM.data=(detected)##ZTGLM.data# This is detected data randomly selected n= 50% .
 
+####### Now import saved data:
 
-
+#IPP.data <- read.csv("IPP.data.csv", header = TRUE)
+#IPP.data = na.omit(IPP.data)
+#Detection.data <- read.csv("Detection.data.csv", header = TRUE)
+#Detection.data = na.omit(Detection.data)
+#ZTGLM.data <- read.csv("ZTGLM.data.csv", header = TRUE)
+#ZTGLM.data = na.omit(ZTGLM.data)
 # Selection of explanatory varibaels based on VIF#
 vifstep(myfullstack, th=10) # select variables which have Varience nflation Factor less than 10.
 
@@ -74,11 +91,14 @@ IPP.ignored=glm(presence~twi + tpo + temp + aspect + elev+habit2pc+hpop+lot_dens
 summary(IPP.ignored)
 ZTGLM.ignored=vglm(group~twi+tpo+temp+aspect+elev+habit2pc+hpop+lot_density+sbd,family="pospoisson", data=ZTGLM.data)
 summary(ZTGLM.ignored)
+
+
+
 #unclass(summary(Detection.model))
 
 ##### perform forward selection by specifying a starting model and the range of models which we want to examine in the search.#### 
-null=glm(presence~1, family= "binomial", data=Detection.data) # null model
-full=glm(presence ~  Dis_habitat_suitable_1+Dis_habitat_suitable_2+Dis_habitat_suitable_3+distance_bridleway+distance_motorwayandlink+distance_path+distance_pedestrian
+null=glm(presence~ 1, family= "binomial", data=Detection.data) # null model
+full=glm(presence ~ Dis_habitat_suitable_1+Dis_habitat_suitable_2+Dis_habitat_suitable_3+distance_bridleway+distance_motorwayandlink+distance_path+distance_pedestrian
          +distance_primaryandlink+distance_residentil+distance_secondaryandlink+distance_tertiaryandlink+distance_trunkandlink+distance_unclassified
          +s1_residential_dist+s1_unclassified_dist+s2_residential_dist+s2_unclassified_dist+s3_residential_dist+habit1+habit2+habit3+aspect+awc+clay+elev+
            fpc+group+habit1pc+habit2pc+habit3pc+hpop+lot_density+nitro+roadk+sbd+temp+tpo+twi+ scale(group),
@@ -93,18 +113,20 @@ step(null, scope=list(lower=null, upper=full), direction="forward")
 set.seed(123) # we create detection probabilities using two methods. glm, rf
 #Detection model: steps as in Hefley`s code`
 Detection.model=glm(presence~  distance_pedestrian + s1_residential_dist + distance_trunkandlink+
-                      distance_tertiaryandlink+scale(group),family= "binomial", data=Detection.data)
+                      distance_tertiaryandlink,family= "binomial", data=Detection.data)
+
 summary(Detection.model)
 # check the prediction map right here.
 myPred1 = predict(myfullstack, Detection.model, type = "response")
 plot(myPred1, xlab = "x", ylab= "y",main="detection model")
 plot(hefleydata.presence,pch=1, add=TRUE)
+plot(myfullstack)
 ###### #######
 myPred = prediction(predict(Detection.model, type = "response"), Detection.data$presence)
 perf <- performance(myPred,measure = "tpr", x.measure = "fpr")
 plot(perf, colorize = T)
 
-#######
+
 ##### Stores the residuals  plot corellagram ####
 Detection.data$res = residuals(Detection.model) # library(ncf)
 myResCorr <- correlog(Detection.data$x, Detection.data$y, Detection.data$res,na.rm=T, increment=1000, resamp=0, latlon = F)
