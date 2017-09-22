@@ -3,17 +3,20 @@ require(rgdal)
 # The input file geodatabase
 fgdb <- "C:\\Users\\uqrdissa\\BACKUPS\\KoaladataNew.gdb"
 
-JH.gdb
 # List all feature classes in a file geodatabase
-subset(ogrDrivers(), grepl("GDB", name))
-fc_list <- ogrListLayers(fgdb)
-print(fc_list)
+ogrListLayers(fgdb)
 
 # Read the feature class
-fc <- readOGR(dsn=fgdb,layer="LGA_study_areashp")
-
+LGA <- readOGR(fgdb,layer="LGA_study_areashp")
 # Determine the FC extent, projection, and attribute information
-summary(fc)
-
+summary(LGA)
+LGA <- spTransform (LGA, crs("+proj=longlat +ellps=WGS84"))# trasform to lat lng before see in google.
 # View the feature class
-plot(fc)
+plot(LGA)
+LGA <- as.data.frame(LGA)
+#save(LGA, obs, file="LGA.RData")
+library(leaflet)
+lnd84 <- readRDS('data/LGA')
+leaflet() %>%
+  addTiles() %>%
+  addPolygons(data = LGA)
