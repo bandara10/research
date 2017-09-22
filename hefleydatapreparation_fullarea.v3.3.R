@@ -24,10 +24,14 @@ fpc[is.na(fpc[])] <- 0
 mask <- raster("PTO_100_200.tif")
 values(mask)[values(mask) > 0] = 0
 plot(mask)
-fpc.corrected <- fpc+ mask
-plot(fpc.corrected)
-writeRaster(fpc.corrected, "fpc.corrected.tif")
+DP_QLD_FPC20141.corrected <- fpc+ mask
+plot(DP_QLD_FPC20141.corrected)
+writeRaster(DP_QLD_FPC20141.corrected, "DP_QLD_FPC20141.corrected.tif")
 #####  Step 1: read raster data from the folder and create a stack. ####
+myfullstack.c <- list.files(pattern="\\.tif$", full.names = TRUE) #select relevant folder to get detection model rasters.
+myfullstack <- stack(myfullstack.c)
+
+
 
 myfullstack.a <- list.files(pattern="\\.tif$", full.names = TRUE) 
 myfullstack <- stack(myfullstack.a)
