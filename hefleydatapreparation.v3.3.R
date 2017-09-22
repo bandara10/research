@@ -27,6 +27,8 @@ fpc.corrected <- fpc+ mask
 # detectionstack folder is used here to create the stack for detectiom model.chnage the directory t this folder. Do not use the fullstack.
 myfullstack.b <- list.files( pattern="\\.tif$", full.names = TRUE) 
 myfullstack <- stack(myfullstack.b)
+names(myfullstack)
+
 #####  Step 1: read raster data from the folder and create a stack. ####
 
 myfullstack.a <- list.files(pattern="\\.tif$", full.names = TRUE) 
@@ -113,14 +115,17 @@ step(null, scope=list(lower=null, upper=full), direction="forward")
 set.seed(123) # we create detection probabilities using two methods. glm, rf
 #Detection model: steps as in Hefley`s code`
 Detection.model=glm(presence~  distance_pedestrian + s1_residential_dist + distance_trunkandlink+
-                      distance_tertiaryandlink,family= "binomial", data=Detection.data)
+                      distance_tertiaryandlink,family = "binomial", data=Detection.data)
 
 summary(Detection.model)
+
+
 # check the prediction map right here.
 #take the subset of the stack as the first rgument of predict function.
 myPred1 = predict(myfullstack, Detection.model, type = "response")
-plot(myPred1, xlab = "x", ylab= "y",main="detection model")
+plot(myPred1, xlab = "x", ylab= "y",main="detection model", sub= expression(paste (logit,P[det]==theta[0]+theta[1]*Z[pdet]+theta[2]*s(Y[gz]))))
 plot(hefleydata.presence,pch=1, add=TRUE)
+hist(h, main = expression(paste (logit,P[det]==theta[0]+theta[1]*Z[pdet]+theta[2]*s(Y[gz]))))
 plot(myfullstack)
 ###### #######
 myPred = prediction(predict(Detection.model, type = "response"), Detection.data$presence)
@@ -154,7 +159,6 @@ IPP.corrected= glm(presence~twi + tpo + temp + aspect + elev+habit2pc+hpop+lot_d
                    family="binomial",weights=(1/p.det)*10000^(1-presence),data=IPP.data)
 
 summary(IPP.corrected)
-
 # broom package: used tidy to get a table from model outputs. This doesnt work for VGLMs.
 # get confidence intervals and compare ignored and corrected models.
 confidenceintervals <- confint(IPP.ignored)
@@ -172,14 +176,15 @@ ZTGLM.corrected = vglm(group~twi + tpo + temp + aspect + elev+habit2pc+hpop+lot_
                        ,weights=1/p.det,family="pospoisson",data=ZTGLM.data) # zapoisson
 
 summary(ZTGLM.corrected)
+#
 # step 7:  Map predictions
 myPred1 = predict(myfullstack, Detection.model, type = "response")
-plot(myPred1, xlab = "x", ylab= "y",main="detection model")
+plot(myPred1, xlab = "x", ylab= "y",main="detection model\nravi", sub= expression(paste (logit,P[det]==theta[0]+theta[1]*Z[pdet]+theta[2]*s(Y[gz]))))
 plot(hefleydata.presence, pch=1,add=TRUE)
 myPred2 = predict(myfullstack, IPP.corrected, type = "response")
-plot(myPred2, xlab = "x", ylab= "y",main=" IPP model-intensity of group")
+plot(myPred2, xlab = "x", ylab= "y",main=" IPP model-intensity of group", sub = expression(paste (log,lambda[gi]==alpha[0]+alpha[1]*Z[gi])))
 plot(hefleydata.presence,pch=1, add=TRUE)
-myPred3.1 = predict(myfullstack, ZTGLM.corrected, type = "response")
+myPred3.1 = predict(myfullstack, ZTGLM.corrected, type = "response", sub = expression(paste (log,lambda[gi]==alpha[0]+alpha[1]*Z[gz])))
 plot(myPred3.1,  main="ZTGLM-Number of koalas in a grid - VGLM ")
 plot(hefleydata.presence,pch=1, add=TRUE)
 #writeRaster(myPred3, "ZTGLM.tif")
@@ -276,6 +281,7 @@ colMeans(bootstrap.sample)[25]
 colMeans(bootstrap.sample)[26]
 
 #### new section for predictions . compare withprevious method in which we used full stack.####
+
 covariates.m <- getValues(myfullstack) # this is the raster subset in detectionmodel folder.
 covariates.df <- as.data.frame(covariates.m)# creae a datafframe 
 covariates.df$fit	<- predict(Detection.model,	newdata	=	covariates.df,	type='response')# 	The	model	fits	are	the	predicted	probability	 
