@@ -24,8 +24,8 @@ mask <- raster("mask\\mask.tif")
 plot(mask)
 fpc.corrected <- fpc+ mask
 #writeRaster(fpc.corrected, "fpc.corrected.tif")
-# detectionstack folder is used here to create the stack for detectiom model. Do not use the fullstack.
-myfullstack.b <- list.files(pattern="\\.tif$", full.names = TRUE) 
+# detectionstack folder is used here to create the stack for detectiom model.chnage the directory t this folder. Do not use the fullstack.
+myfullstack.b <- list.files( pattern="\\.tif$", full.names = TRUE) 
 myfullstack <- stack(myfullstack.b)
 #####  Step 1: read raster data from the folder and create a stack. ####
 
@@ -117,6 +117,7 @@ Detection.model=glm(presence~  distance_pedestrian + s1_residential_dist + dista
 
 summary(Detection.model)
 # check the prediction map right here.
+#take the subset of the stack as the first rgument of predict function.
 myPred1 = predict(myfullstack, Detection.model, type = "response")
 plot(myPred1, xlab = "x", ylab= "y",main="detection model")
 plot(hefleydata.presence,pch=1, add=TRUE)
@@ -274,7 +275,13 @@ colMeans(bootstrap.sample)[24]
 colMeans(bootstrap.sample)[25]
 colMeans(bootstrap.sample)[26]
 
- 
+#### new section for predictions . compare withprevious method in which we used full stack.####
+covariates.m <- getValues(myfullstack) # this is the raster subset in detectionmodel folder.
+covariates.df <- as.data.frame(covariates.m)# creae a datafframe 
+covariates.df$fit	<- predict(Detection.model,	newdata	=	covariates.df,	type='response')# 	The	model	fits	are	the	predicted	probability	 
+r.probs <- raster("distance_pedestrian.tif") # read a raster to store probabilities.
+r.probs[] <- covariates.df$fit # set valuves to r.probs
+plot(r.probs) # this raster has probability valuves.
 ######### discussion points ########
 # koala detection map: we corrected for detection erros. People report koalas from places where they went and found koalas.
 #This doesnt mean that it is a random sample from where koalas are present and people detected some and reported some. 
