@@ -14,6 +14,7 @@ library(rgl)
 #library(dplyr)
 library(usdm)
 library(ROCR)
+library(maptools)
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack")
 # raster fpc has na valuves in the study area which create problems. change this to 0.
 #set fpc na values to 0: this will chage sea areaalso to 0. 
@@ -42,9 +43,20 @@ hefleydata.presence <-subset(hefleydata, presence==1)
 coordinates(hefleydata.presence) <- ~x+y
 plot(hefleydata.presence)
 
+
+#
+#######
+# lets covert hefleydata as kml to see it in google earth. See how different are they in LGAs. some LGAs have more than others. s
+BNG<- CRS("+init=epsg:28356") 
+proj4string(hefleydata.presence)<-BNG
+p4s <- CRS("+proj=longlat +ellps=WGS84 +datum=WGS84")
+hefleydata.presence <- spTransform (hefleydata.presence, p4s)
+writeOGR(hefleydata.presence, dsn="hefleydata.presence.kml", layer= "hefleydata.presence", driver="KML")# check you rfolder for the kml file.
+
 # get only coordinates from dataset.
 hefleydata.s <- hefleydata[c("x","y")]
 hefleydata.s = as.data.frame(hefleydata.s)
+
 #plot(hefleydata.s)
 #select presence records
 #### Step 3:  extract X=vector.boot from raster anad combine wth hefleydata, presence and group varibels.####
@@ -103,8 +115,9 @@ null=glm(presence~ 1, family= "binomial", data=Detection.data) # null model
 full=glm(presence ~ Dis_habitat_suitable_1+Dis_habitat_suitable_2+Dis_habitat_suitable_3+distance_bridleway+distance_motorwayandlink+distance_path+distance_pedestrian
          +distance_primaryandlink+distance_residentil+distance_secondaryandlink+distance_tertiaryandlink+distance_trunkandlink+distance_unclassified
          +s1_residential_dist+s1_unclassified_dist+s2_residential_dist+s2_unclassified_dist+s3_residential_dist+habit1+habit2+habit3+aspect+awc+clay+elev+
-           fpc+group+habit1pc+habit2pc+habit3pc+hpop+lot_density+nitro+roadk+sbd+temp+tpo+twi+ scale(group),
+           fpc.corrected+group+habit1pc+habit2pc+habit3pc+hpop+lot_density+nitro+roadk+sbd+temp+tpo+twi+ scale(group),
           family= "binomial", data=Detection.data) # full set of explanatory varibales.
+summary(full)
 # perform forward selection using the command step
 step(null, scope=list(lower=null, upper=full), direction="forward")
 ### model slection in this way did not give valid results in predictions and maps. hwo to use selected variables.
@@ -115,7 +128,7 @@ step(null, scope=list(lower=null, upper=full), direction="forward")
 set.seed(123) # we create detection probabilities using two methods. glm, rf
 #Detection model: steps as in Hefley`s code`
 Detection.model=glm(presence~  distance_pedestrian + s1_residential_dist + distance_trunkandlink+
-                      distance_tertiaryandlink,family = "binomial", data=Detection.data)
+                      distance_tertiaryandlink+ hpop,family = "binomial", data=Detection.data)
 
 summary(Detection.model)
 
@@ -177,7 +190,7 @@ ZTGLM.corrected = vglm(group~twi + tpo + temp + aspect + elev+habit2pc+hpop+lot_
 
 summary(ZTGLM.corrected)
 #
-# step 7:  Map predictions
+# step 7:  Map predictions: use #par(mar = c(8, 5, 8, 3)) 
 myPred1 = predict(myfullstack, Detection.model, type = "response")
 plot(myPred1, xlab = "x", ylab= "y",main="detection model\nravi", sub= expression(paste (logit,P[det]==theta[0]+theta[1]*Z[pdet]+theta[2]*s(Y[gz]))))
 plot(hefleydata.presence, pch=1,add=TRUE)
