@@ -15,6 +15,7 @@ library(rgl)
 library(usdm)
 library(ROCR)
 library(maptools)
+library(mapview)
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack")
 # raster fpc has na valuves in the study area which create problems. change this to 0.
 #set fpc na values to 0: this will chage sea areaalso to 0. 
@@ -26,9 +27,9 @@ plot(mask)
 fpc.corrected <- fpc+ mask
 #writeRaster(fpc.corrected, "fpc.corrected.tif")
 # detectionstack folder is used here to create the stack for detectiom model.chnage the directory t this folder. Do not use the fullstack.
-myfullstack.b <- list.files( pattern="\\.tif$", full.names = TRUE) 
-myfullstack <- stack(myfullstack.b)
-names(myfullstack)
+mydetectionstack.b <- list.files( path="detectionstack", pattern="\\.tif$", full.names = TRUE) 
+mydetectionstack <- stack(mydetectionstack.b)
+names(mydetectionstack)
 
 #####  Step 1: read raster data from the folder and create a stack. ####
 
@@ -42,9 +43,9 @@ names(hefleydata)
 hefleydata.presence <-subset(hefleydata, presence==1)
 coordinates(hefleydata.presence) <- ~x+y
 plot(hefleydata.presence)
-
-
-#
+# view data in viewer.
+mapView(hefleydata.presence)
+mapView(fpc)
 #######
 # lets covert hefleydata as kml to see it in google earth. See how different are they in LGAs. some LGAs have more than others. s
 BNG<- CRS("+init=epsg:28356") 
@@ -135,7 +136,7 @@ summary(Detection.model)
 
 # check the prediction map right here.
 #take the subset of the stack as the first rgument of predict function.
-myPred1 = predict(myfullstack, Detection.model, type = "response")
+myPred1 = predict(mydetectionstack, Detection.model, type = "response")
 plot(myPred1, xlab = "x", ylab= "y",main="detection model", sub= expression(paste (logit,P[det]==theta[0]+theta[1]*Z[pdet]+theta[2]*s(Y[gz]))))
 plot(hefleydata.presence,pch=1, add=TRUE)
 hist(h, main = expression(paste (logit,P[det]==theta[0]+theta[1]*Z[pdet]+theta[2]*s(Y[gz]))))
@@ -160,6 +161,9 @@ summary(Detection.model.1) # not a good model.
 ##### #####
 #####Step 4: Estimate the probability of detection for each presence-only location.####
 p.det = faraway::ilogit(predict(Detection.model, type="response", new=ZTGLM.data))# chnaged myD to ZTGLM.data length =461. 3 X=vector.boot 
+p.det = predict(Detection.model, type="response", new=ZTGLM.data)# chnaged myD to ZTGLM.data length =461. 3 X=vector.boot 
+
+
 #myBRT,n.trees=myBRT$gbm.call$best.trees ; add this as model in the above function.
 
 hist(p.det, breaks=100)
@@ -192,7 +196,7 @@ summary(ZTGLM.corrected)
 #
 # step 7:  Map predictions: use #par(mar = c(8, 5, 8, 3)) 
 myPred1 = predict(myfullstack, Detection.model, type = "response")
-plot(myPred1, xlab = "x", ylab= "y",main="detection model\nravi", sub= expression(paste (logit,P[det]==theta[0]+theta[1]*Z[pdet]+theta[2]*s(Y[gz]))))
+plot(myPred1, xlab = "x", ylab= "y",main="detection model", sub= expression(paste (logit,P[det]==theta[0]+theta[1]*Z[pdet]+theta[2]*s(Y[gz]))))
 plot(hefleydata.presence, pch=1,add=TRUE)
 myPred2 = predict(myfullstack, IPP.corrected, type = "response")
 plot(myPred2, xlab = "x", ylab= "y",main=" IPP model-intensity of group", sub = expression(paste (log,lambda[gi]==alpha[0]+alpha[1]*Z[gi])))
