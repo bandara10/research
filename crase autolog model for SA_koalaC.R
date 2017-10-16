@@ -1,3 +1,25 @@
+##### load libraries ####
+library(spatial.tools)
+library(VGAM)
+library(mosaic)
+library(spatstat)
+library(faraway)
+library(raster)
+library(broom)
+library(dismo)
+library(randomForest)
+library(forestFloor)
+library(AUC)
+library(rgl)
+#library(dplyr)
+library(usdm)
+library(ROCR)
+library(maptools)
+library(mapview)
+setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack")
+myfullstack.c <- list.files(pattern="\\.tif$", full.names = TRUE) #select relevant folder to get detection model rasters.
+myfullstack <- stack(myfullstack.c)
+
 # get values from raster stack
 covariates.m <- getValues(myfullstack)
 # convert  valuves as.data.frame 
@@ -6,7 +28,7 @@ covariates.df <- as.data.frame(covariates.m)
 
 
 data2011.shp <- readShapePoly("hefley_fishnet_rastermatch2011.shp")
-plot(data2011.shp)
+#plot(data2011.shp)
 
 #create a matching raster
 mydata.r <- raster("twi.tif")
@@ -111,3 +133,6 @@ pred <- predict(myfullstack, autolog_glm,type = "response")
 myPred1 = predict(myfullstack, Detection.model, type = "response", na.rm=TRUE)
 plot(myPred1)
 plot(hefleydata.presence, pch=1, add=TRUE)
+
+lambda <- 1
+(lambda^9 * 2.71828^-lambda)/(factorial(9))

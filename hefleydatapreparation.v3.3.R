@@ -136,7 +136,7 @@ summary(Detection.model)
 
 # check the prediction map right here.
 #take the subset of the stack as the first rgument of predict function.
-myPred1 = predict(mydetectionstack, Detection.model, type = "response")
+myPred1 = predict(myfullstack, Detection.model, type = "response")
 plot(myPred1, xlab = "x", ylab= "y",main="detection model", sub= expression(paste (logit,P[det]==theta[0]+theta[1]*Z[pdet]+theta[2]*s(Y[gz]))))
 plot(hefleydata.presence,pch=1, add=TRUE)
 hist(h, main = expression(paste (logit,P[det]==theta[0]+theta[1]*Z[pdet]+theta[2]*s(Y[gz]))))

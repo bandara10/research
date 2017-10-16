@@ -23,7 +23,7 @@ x=rnorm(10^6,0,1)
 eta.pres=8.5+1*x
 mat=matrix(exp(eta.pres), nrow=1000, ncol=1000)
 lam=im(mat, xrange=c(0,1), yrange=c(0,1))
-points=rpoispp(lam)
+points=rpoispp(lam) # complete spatial ramdomness.  homogenous or inhomogenous.
 
 x.ipp=(log(lam[points])-8.5)/1   #num [1:8156] 1.312 1.107 1.316 0.617 2.492
 x.int=rnorm(1000,0,1)	  #montecarlo points#        #num [1:1000]   -0.0786 -1.2963 -0.2973 0.2261 1.2265
