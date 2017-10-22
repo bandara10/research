@@ -17,7 +17,20 @@ extent(myenv.stack) <- extent(c(xmin(myenv.stack), xmax(myenv.stack), ymin(myenv
 
 
 plot(myenv.stack[[3]])
+####### create a new raster of the same extent as stack and assign values 
+start_y <- 441829 #100
+start_x <- 6901098 #200
+griddf <- expand.grid(X = seq(from = start_y, by = 1, l = 100),
+                      Y = seq(from = start_x, by = 1, l = 100))
 
+A <- rnorm(10000, 55, 6)
+B <- rnorm(10000, 28, 20)
+
+envs<- cbind(griddf,A,B)
+
+xy.rr <- rasterFromXYZ(as.data.frame(envs)[, c("X", "Y", "A")])
+
+plot(xy.rr)
 
 
 ######
