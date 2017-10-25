@@ -1,13 +1,25 @@
 library(ppmlasso)
 data(BlueMountains)
+str(BlueMountains)
+load(file="BlueMountains.RData")
 # Pre-standardise observer bias variables
+str(ava)
 backg.env = BlueMountains$env
+backg.env <- backg.env[c(1,2,6,7)]
+str(backg.env)
+head(backg.env)
 #head(backg.env)
+eucalypt = BlueMountains$eucalypt
+#coordinates(eucalypt) <- ~X+Y
+#coordinates(backg.env) <- ~X+Y
+#plot(backg.env)
+#plot(eucalypt)
+#plot(eucalypt, add=TRUE, col="red")
+str(eucalypt)
 xydatan <- backg.env[c(1,2)] # get x y colomns to be cbind later with predicted valuves.
 #xydata <- backg.env[c(1,2)]
 #coordinates(xydata) <- ~X+Y
 #plot(xydata)
-
 #stand.D_MAIN_RDS = backg.env$D_MAIN_RDS
 #stand.D_URBAN = backg.env$D_URBAN
 #stand.D_MAIN_RDS = standardise.X(backg.env$D_MAIN_RDS)$X
@@ -21,10 +33,11 @@ backg.env$D_URBAN = stand.D_MAIN_RDS
 #backg.env$D_MAIN_RDS = stand.D_MAIN_RDS
 #backg.env$D_URBAN = stand.D_URBAN
 # To fit a Poisson point process model at a spatial resolution of 1km
-ppmForm = ~ poly(FC, TMP_MAX,TMP_MIN, RAIN_ANN, degree = 2) 
-ppmFit = ppmlasso(ppmForm, sp.xy = BlueMountains$eucalypt,
+ppmForm = ~ poly(RAIN_ANN,TMP_MAX, degree = 2) 
+ppmFit = ppmlasso(ppmForm, sp.xy = eucalypt,
                   env.grid = backg.env, sp.scale = 1)
-
+load(file="SpEnvData.RData")
+load(file="TestPPM.RData")
 # To predict using model-based control of observer bias (at min value for D_MAIN_RDS):
 newEnv = BlueMountains$env
 head(newEnv)
@@ -83,6 +96,7 @@ resid.plot.2 = diagnose(ppmFit.2, which = "smooth", type = "Pearson")
 library(ppmlasso)
 data(BlueMountains)
 backg.env = BlueMountains$env
+hist(backg.env$TMP_MIN  )
 ## Pre-standardise observer bias variables
 stand.D_MAIN_RDS=scale.default(backg.env$D_MAIN_RDS, center = TRUE, scale = TRUE) #standarise
 stand.D_URBAN=scale.default(backg.env$D_URBAN, center = TRUE, scale = TRUE) #standarise
@@ -115,3 +129,6 @@ plot(xy.rr.3, las=0)
 resid.plot = diagnose(ppmFit, which = "smooth", type = "Pearson")
 resid.plot.2 = diagnose(ppmFit.2, which = "smooth", type = "Pearson")
 resid.plot.3 = diagnose(ppmFit.3, which = "smooth", type = "Pearson")
+
+[1] "Output saved in the file SpEnvData.RData"
+[1] "Output saved in the file TestPPM.RData"

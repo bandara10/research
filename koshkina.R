@@ -5,6 +5,7 @@
 ## utility functions for the file POPA-functions
 ## 19/08/2016
 ###################################################################################################
+(abc <- load("mee.RDA")) # why this dataset cannot be seen.
 
 #likelihood functions
 # Utility functions
@@ -337,3 +338,4 @@ negLL.pbso = function(param,y.so.pres,y.so, X.po, W.po, X.back, W.back, X.so, W.
 	negLL.po(param.po, X.po, W.po,X.back, W.back ) + negLL.so(param.so,y.so.pres,y.so,X.so,W.so)
 }
 
+plot(s.detection)

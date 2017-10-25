@@ -15,7 +15,6 @@ library(rgl)
 library(usdm)
 library(ROCR)
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_syn")
-
 # raster fpc has na valuves. change this to 0.
 #set fpc na values to 0: this will chage sea areaalso to 0. 
 fpc <-  raster("DP_QLD_FPC20141.tif")
@@ -31,18 +30,18 @@ writeRaster(DP_QLD_FPC20141.corrected, "DP_QLD_FPC20141.corrected.tif")
 myfullstack.c <- list.files(pattern="\\.tif$", full.names = TRUE) #select relevant folder to get detection model rasters.
 myfullstack <- stack(myfullstack.c)
 
-
+#ignore above stack in data preparation stage.
 
 myfullstack.a <- list.files(pattern="\\.tif$", full.names = TRUE) 
 myfullstack <- stack(myfullstack.a)
 #plot(myfullstack)
 #### Step 2: import koala .csv data from the full study land region. Full square study are consists of land and sea. ####
-hefleydata <- read.csv("hefley_fishnet_rastermatch2011.csv", header = TRUE) # centroids for full study area as some sros are required.
+hefleydata <- read.csv("hefley_fishnet_rastermatch2010_2014.csv", header = TRUE) # centroids for full study area as some sros are required.
 names(hefleydata)
 # plot koala presence locations
 hefleydata.presence <-subset(hefleydata, presence==1)
 coordinates(hefleydata.presence) <- ~x+y
-plot(hefleydata.presence)
+plot(hefleydata.presence, add=TRUE)
 
 # get only coordinates from dataset.
 hefleydata.s <- hefleydata[c("x","y")]
@@ -52,7 +51,7 @@ hefleydata.s = as.data.frame(hefleydata.s)
 #### Step 3:  extract X=vector.boot from raster anad combine wth hefleydata, presence and group varibels.####
 myFD = cbind(hefleydata.s,raster::extract(myfullstack,hefleydata.s))
 # get presence and group vriables
-myFD1 = cbind(myFD,hefleydata [6]) # get presence and group data. 
+myFD1 = cbind(myFD,hefleydata [3:4]) # get presence and group data. 
 myFD1 = na.omit(myFD1) # remove all NA valuves
 
 #### Step 4: select presence and abnsences data and combine with. #### 
@@ -60,7 +59,7 @@ ZTGLM.myFD1=myFD1[which(myFD1$presence==1),] # select presence data. THis will b
 ZTGLM.myFD2=myFD1[which(myFD1$presence==0),] # select all absence data 
 #####Step 5: select only 1000 absences (monticarlo points as in hefleys method??)####
 set.seed(12356)
-ZTGLM.myFD3 <- sample(seq_len(nrow(ZTGLM.myFD2)), size = 1000,replace=FALSE)#select only 1000 absences use for ipp.data
+ZTGLM.myFD3 <- sample(seq_len(nrow(ZTGLM.myFD2)), size = 3000,replace=FALSE)#select only 1000 absences use for ipp.data
 ZTGLM.myFD4 <- ZTGLM.myFD2[ZTGLM.myFD3, ] #x.int data frame now
 #This is  similar to hefley`s IWLR data set.
 ZTGLM.myFD5=rbind(ZTGLM.myFD1,ZTGLM.myFD4) 
@@ -88,12 +87,12 @@ ZTGLM.data=(detected)##ZTGLM.data# This is detected data randomly selected n= 50
 #ZTGLM.data <- read.csv("ZTGLM.data.csv", header = TRUE)
 #ZTGLM.data = na.omit(ZTGLM.data)
 # Selection of explanatory varibaels based on VIF#
-vifstep(myfullstack, th=10) # select variables which have Varience nflation Factor less than 10.
+#vifstep(myfullstack, th=10) # select variables which have Varience nflation Factor less than 10.
 
 ##### Step 8:  analysis without detection correction factor#######
-IPP.ignored=glm(presence~twi + tpo + temp + aspect + elev+habit2pc+hpop+lot_density+sbd,family="binomial",weights=10000^(1-presence),data=IPP.data) # IPP.data2 added.
+IPP.ignored=glm(presence~habit3 + lot_density + dem +hpop+hpop+lot_density+rainfallmeanannual,family="binomial",weights=10000^(1-presence),data=IPP.data) # IPP.data2 added.
 summary(IPP.ignored)
-ZTGLM.ignored=vglm(group~twi+tpo+temp+aspect+elev+habit2pc+hpop+lot_density+sbd,family="pospoisson", data=ZTGLM.data)
+ZTGLM.ignored=vglm(group~habit3 + lot_density + dem +hpop+hpop+lot_density+rainfallmeanannual,family="pospoisson", data=ZTGLM.data)
 summary(ZTGLM.ignored)
 #unclass(summary(Detection.model))
 
@@ -113,17 +112,16 @@ logistic
 #Hefley method GLM
 set.seed(1238) # we create detection probabilities using two methods. glm, rf
 #Detection model: steps as in Hefley`s code`
-Detection.model=glm(presence~  distance_pedestrian + s1_residential_dist + distance_trunkandlink+
-                      distance_tertiaryandlink, family= "binomial", data=Detection.data)
+Detection.model=glm(presence~  habit3 + lot_density + dem +hpop+lot_density+rainfallmeanannual, family= "binomial", data=Detection.data)
 
 
-
+s <- dropLayer (myfullstack, c(1:13, 15:40, 42, 45:60, 62:94))
 
 summary(Detection.model)
 # check the prediction map right here.
-myPred1 = predict(myfullstack, Detection.model, type = "response")
+myPred1 = predict(s, Detection.model, type = "response")
 plot(myPred1, xlab = "x", ylab= "y",main="detection model")
-plot(hefleydata.presence,pch=1, add=TRUE)
+plot(hefleydata.presence,pch=".", add=TRUE)
 ###### #######
 myPred = prediction(predict(Detection.model, type = "response"), Detection.data$presence)
 perf <- performance(myPred,measure = "tpr", x.measure = "fpr")
@@ -152,7 +150,7 @@ ZTGLM.data$p.det=p.det
 
 ######Step 5: - Fit an inhomogeneous Poisson point process  that weights the log-likelihood by 1/p.det . ####
 
-IPP.corrected= glm(presence~twi + tpo + temp + aspect + dem+habit2pc+hpop+lot_density+sbd,
+IPP.corrected= glm(presence~habit3 + lot_density + dem +hpop+lot_density+rainfallmeanannual,
                    family="binomial",weights=(1/p.det)*10000^(1-presence),data=IPP.data)
 
 summary(IPP.corrected)
@@ -170,18 +168,18 @@ histogram(IPP.data$lot_density ,fitted(IPP.corrected),xlab='lot',
 
 #use only the significant covariates, tpo +hpop+lot_density+sbd
 # VGAM: read about which family to use: https://www.r-project.org/doc/Rnews/Rnews_2008-2.pdf
-ZTGLM.corrected = vglm(group~twi + tpo + temp + aspect + elev+habit2pc+hpop+lot_density+sbd
+ZTGLM.corrected = vglm(group~habit3 + lot_density + dem +hpop+lot_density+rainfallmeanannual
                        ,weights=1/p.det,family="pospoisson",data=ZTGLM.data) # zapoisson
 
 summary(ZTGLM.corrected)
 # step 7:  Map predictions
-myPred1 = predict(myfullstack, Detection.model, type = "response")
+myPred1 = predict(s, Detection.model, type = "response")
 plot(myPred1, xlab = "x", ylab= "y",main="detection model")
 plot(hefleydata.presence, pch=1,add=TRUE)
-myPred2 = predict(myfullstack, IPP.corrected, type = "response")
+myPred2 = predict(s, IPP.corrected, type = "response")
 plot(myPred2, xlab = "x", ylab= "y",main=" IPP model-intensity of group")
-plot(hefleydata.presence,pch=1, add=TRUE)
-myPred3.1 = predict(myfullstack, ZTGLM.corrected, type = "response")
+plot(hefleydata.presence,pch="+", add=TRUE)
+myPred3.1 = predict(s, ZTGLM.corrected, type = "response")
 plot(myPred3.1,  main="ZTGLM-Number of koalas in a grid - VGLM ")
 plot(hefleydata.presence,pch=1, add=TRUE)
 #writeRaster(myPred3, "ZTGLM.tif")
@@ -305,4 +303,3 @@ colMeans(bootstrap.sample)[26]
 #sightings adding more sightings from other years. Then instead of 1000 k grids, create smaller grids say 1/4 th of 1000k, count the number of kolas in each small grid and consider them as groups.
 #Then ZTGLM model which will be modelled at 1000k grid will give us the total count of koalas @ 1000k grid. 
 # ZTGLM model: or VGLM model :   Total number of koalas in each grid. Groups have sizes and this is the total of each group size.
-
