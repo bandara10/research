@@ -59,7 +59,7 @@ ZTGLM.myFD1=myFD1[which(myFD1$presence==1),] # select presence data. THis will b
 ZTGLM.myFD2=myFD1[which(myFD1$presence==0),] # select all absence data 
 #####Step 5: select only 1000 absences (monticarlo points as in hefleys method??)####
 set.seed(12356)
-ZTGLM.myFD3 <- sample(seq_len(nrow(ZTGLM.myFD2)), size = 3000,replace=FALSE)#select only 1000 absences use for ipp.data
+ZTGLM.myFD3 <- sample(seq_len(nrow(ZTGLM.myFD2)), size = 8000,replace=FALSE)#select only 1000 absences use for ipp.data
 ZTGLM.myFD4 <- ZTGLM.myFD2[ZTGLM.myFD3, ] #x.int data frame now
 #This is  similar to hefley`s IWLR data set.
 ZTGLM.myFD5=rbind(ZTGLM.myFD1,ZTGLM.myFD4) 
@@ -87,11 +87,16 @@ ZTGLM.data=(detected)##ZTGLM.data# This is detected data randomly selected n= 50
 #ZTGLM.data <- read.csv("ZTGLM.data.csv", header = TRUE)
 #ZTGLM.data = na.omit(ZTGLM.data)
 # Selection of explanatory varibaels based on VIF#
-#vifstep(myfullstack, th=10) # select variables which have Varience nflation Factor less than 10.
+vifstep(myfullstack, th=10) # select variables which have Varience nflation Factor less than 10.
 
 ##### Step 8:  analysis without detection correction factor#######
 IPP.ignored=glm(presence~habit3 + lot_density + dem +hpop+hpop+lot_density+rainfallmeanannual,family="binomial",weights=10000^(1-presence),data=IPP.data) # IPP.data2 added.
 summary(IPP.ignored)
+
+bc <- boxcox(y ~ x)
+
+
+
 ZTGLM.ignored=vglm(group~habit3 + lot_density + dem +hpop+hpop+lot_density+rainfallmeanannual,family="pospoisson", data=ZTGLM.data)
 summary(ZTGLM.ignored)
 #unclass(summary(Detection.model))
@@ -302,4 +307,71 @@ colMeans(bootstrap.sample)[26]
 # and they have a size. These are number of groups and they have a size. Better approach would be to increase number of 
 #sightings adding more sightings from other years. Then instead of 1000 k grids, create smaller grids say 1/4 th of 1000k, count the number of kolas in each small grid and consider them as groups.
 #Then ZTGLM model which will be modelled at 1000k grid will give us the total count of koalas @ 1000k grid. 
-# ZTGLM model: or VGLM model :   Total number of koalas in each grid. Groups have sizes and this is the total of each group size.
+# ZTGLM model: or VGLM model :   Total number of koalas in each grid. Groups have sizes and this is the total of each group
+#size.
+#---------- VIFs of the remained variables --------
+
+  ## Variables      VIF
+  # 1                   aspect91 1.019620
+  # 2                BDW_000_005 6.128456
+  # 3                BDW_100_200 3.169690
+  # 4                CLY_000_005 6.464708
+  # 5                CLY_015_030 7.238230
+  # 6                CLY_100_200 5.438217
+  # 7                        dem 5.959911
+  # 8     Dis_habitat_suitable_1 2.374681
+  # 9     Dis_habitat_suitable_2 8.471116
+  # 10    Dis_habitat_suitable_3 5.360097
+  # 11        distance_bridleway 5.665352
+  # 12         distance_cycleway 6.935558
+  # 13             distance_path 7.729569
+  # 14   distance_primaryandlink 2.883634
+  # 15       distance_residentil 4.267363
+  # 16 distance_secondaryandlink 4.041683
+  # 17          distance_service 6.523555
+  # 18  distance_tertiaryandlink 3.564443
+  # 19            distance_track 6.410052
+  # 20     distance_trunkandlink 2.272471
+  # 21     distance_unclassified 3.284210
+  # 22           DP_QLD_FPC20141 1.526809
+  # 23                 foliagePC 1.759665
+  # 24                   footway 1.372769
+  # 25                    habit1 8.943007
+  # 26             habit1percent 1.379563
+  # 27                    habit2 8.378853
+  # 28             habit2percent 1.375193
+  # 29                    habit3 5.222451
+  # 30             habit3percent 1.217281
+  # 31                      hpop 4.330253
+  # 32               lot_density 6.254731
+  # 33                  motorway 1.402056
+  # 34              motorwaylink 1.413816
+  # 35               NTO_000_005 4.823298
+  # 36               NTO_100_200 3.143962
+  # 37                      path 1.032479
+  # 38                pedestrian 1.049831
+  # 39                   primary 1.243084
+  # 40               PTO_000_005 7.512569
+  # 41               PTO_100_200 6.422655
+  # 42        rainfallmeanannual 6.040945
+  # 43               residential 4.630845
+  # 44                 riverbank 1.054643
+  # 45                    rivers 1.092706
+  # 46       s1_residential_dist 9.009326
+  # 47              SAWC_000_005 6.568994
+  # 48              SAWC_015_030 6.818074
+  49                  secondry 1.350571
+  # 50             secondry_link 1.349122
+  # 51          Slope_percent_61 2.785230
+  # 52                    stream 1.063553
+  # 53     temp_maximum1990_2000 2.422886
+  # 54                  tertiary 1.547037
+  # 55            tertiary_liink 1.340137
+  # 56                    TopoPI 1.112533
+  # 57                    TopoWI 1.527651
+  # 58                     track 1.062835
+  # 59                    trunck 1.067250
+   # 60              unclassified 1.128605
+
+
+ 

@@ -1,7 +1,7 @@
 library(ppmlasso)
 data(BlueMountains)
 str(BlueMountains)
-load(file="BlueMountains.RData")
+#load(file="BlueMountains.RData")
 # Pre-standardise observer bias variables
 str(ava)
 backg.env = BlueMountains$env
