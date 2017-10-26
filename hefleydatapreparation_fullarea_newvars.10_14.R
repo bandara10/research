@@ -28,25 +28,8 @@ library(ROCR)
 library(maptools)
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_syn\\renamed_vars")
 
-# raster fpc has na valuves. change this to 0.
-#set fpc na values to 0: this will chage sea areaalso to 0. 
-#fpc <-  raster("DP_QLD_FPC20141.tif")
-#plot(fpc)
-#fpc[is.na(fpc[])] <- 0
-#mask <- raster("PTO_100_200.tif")
-#values(mask)[values(mask) > 0] = 0
-#plot(mask)
-#DP_QLD_FPC20141.corrected <- fpc+ mask
-#plot(DP_QLD_FPC20141.corrected)
-#writeRaster(DP_QLD_FPC20141.corrected, "DP_QLD_FPC20141.corrected.tif")
-#####  Step 1: read raster data from the folder and create a stack. ####
-#myfullstack.c <- list.files(pattern="\\.tif$", full.names = TRUE) #select relevant folder to get detection model rasters.
-#myfullstack <- stack(myfullstack.c)
 myfullstack.a <- list.files(pattern="\\.tif$", full.names = TRUE) 
 myfullstack <- stack(myfullstack.a)
-plot(myfullstack)
-#myfullstackn <- dropLayer(myfullstack, c(1:13,15:60, 62:85,88:94)) 
-
 #### Step 2: import koala .csv data from the full study land region. Full square study are consists of land and sea. ####
 hefleydata <- read.csv("hefley_fishnet_rastermatch2010_2014.csv", header = TRUE) # centroids for full study area as some sros are required.
 names(hefleydata)
