@@ -15,6 +15,9 @@ write.csv(rasterxy, "wartonmatch.csv")
 # convert xy to km
 rasterxy$X <- rasterxy$x/1000 ; rasterxy$Y <- rasterxy$y/1000
 rasterXY <- rasterxy [c(5,6,3,4)]
+colnames(rasterXY)[3] <- "ELEV"
+colnames(rasterXY)[4] <- "TEMP"
+write.csv(rasterXY, "wartonmatch.csv")
 #koala data
 kolaxy <- read.csv("wartondata\\kolaxy.csv", header = TRUE)
 kolaxy <- subset(kolaxy, y> 6901098 & y < 7000000, select=x:y) # limit y selection
@@ -26,7 +29,7 @@ kxy <- as.data.frame(kolaxy2[c(1,2)])
 kxy$X <- kxy$x/1000 ; kxy$Y <- kxy$y/1000
 kXY <- kxy [c(3,4)]
 
-write.csv(kxy, "koalaxy.csv")
+write.csv(kXY, "koalaxy.csv")
 plot(kxy, add=TRUE)
 
 #########
