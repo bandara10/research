@@ -8,38 +8,52 @@ setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack"
 myenv <- list.files( path="wartondata", pattern="\\.tif$", full.names = TRUE) 
 myenv.stack <- stack(myenv)
 ### crop to extent to get square area
-plot(myenv.stack[[1]])
-newex <- drawExtent()
-stack.c <- crop(myenv.stack, newex)
-plot(stack.c)
-myenv.stack2 <- stack.c
+# plot(myenv.stack[[1]])
+# newex <- drawExtent()
+# stack.c <- crop(myenv.stack, newex)
+# plot(stack.c)
+# myenv.stack2 <- stack.c
 
-d <- (myenv.stack2[[1]])
-e <- (myenv.stack2[[2]])
-f <- (myenv.stack2[[3]])
+d <- (myenv.stack[[1]])
+e <- (myenv.stack[[2]])
+f <- (myenv.stack[[3]])
 
-dd <- rasterToPoints(d, spatial = TRUE)
-ee <- rasterToPoints(e, spatial = TRUE)
-ff <- rasterToPoints(f, spatial = TRUE)
+e <- as.data.frame(d, xy=TRUE)
+ee <- e[c(1,2)]
+ee$X  <- ee$x/1000 
+ee$Y <- ee$y/1000
+eee <- ee [c(3,4)]
+#bind this with raster valuves
 
-dd <- as.data.frame(dd)
-ee<- as.data.frame(ee)
-ff<- as.data.frame(ff)
-rasterXY <- cbind(ee$x, ee$y, dd$distance_tertiaryandlink, ee$elev, ff$temp)
+# sss <- as.data.frame(myenv.stack, centroids= TRUE,  xy = TRUE)
+# a <- sss[c(1,2,4)]
+# ar <- rasterFromXYZ(as.data.frame(a)[, c("x", "y", "elev")])
+
+dd <- as.data.frame(d)
+ee<- as.data.frame(e)
+ff<- as.data.frame(f)
+rasterXY <- cbind(eee$X, eee$Y, dd$distance_tertiaryandlink, ee$elev, ff$temp)
 rasterXYa <- as.data.frame(rasterXY)
 colnames(rasterXYa)[1] <- "X"
 colnames(rasterXYa)[2] <- "Y"
-colnames(rasterXYa)[3] <- "DIS_TER"
+colnames(rasterXYa)[3] <- "TEM"
 colnames(rasterXYa)[4] <- "ELEV"
 colnames(rasterXYa)[5] <- "TEM"
 
-rasterXYaX <- rasterXYa$X/1000 
-rasterXYa$Y <- rasterXYa$Y/1000
+#rasterXYaX <- rasterXYa$X/1000 
+#rasterXYa$Y <- rasterXYa$Y/1000
+arr <- rasterFromXYZ(as.data.frame(rasterXYa)[, c("X", "Y", "TEM")], res=.5)
+arrr <- rasterFromXYZ(as.data.frame(rasterXYa)[, c("X", "Y", "ELEV")], res=.5)
+st <- stack(arr, arrr)
 
+stt <- as.data.frame(st, xy=TRUE)
+
+colnames(stt)[1] <- "X"
+colnames(stt)[2] <- "Y"
 
 
 # quadrature points not working.
-quad.1 = sample.quad(env.grid =rasterXY , sp.scale = 1, file = "Quad")
+quad.1 = sample.quad(env.grid =stt , sp.scale = 1, file = "Quad")
 
 
 #koala data
