@@ -8,16 +8,29 @@ setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack"
 myenv <- list.files( path="wartondata", pattern="\\.tif$", full.names = TRUE) 
 
 myenv.stack <- stack(myenv)
-plot(myenv.stack)
-rasterxy <- as.data.frame(myenv.stack, xy=TRUE)
+plot(myenv.stack[[1]])
+
+### crop to extent to get square area
+plot(myenv.stack[[1]])
+newex <- drawExtent()
+stack.c <- crop(myenv.stack, newex)
+plot(stack.c)
+
+
+rasterxy <- as.data.frame(stack.c, xy=TRUE)
 rasterxy <- na.omit(rasterxy)
-write.csv(rasterxy, "wartonmatch.csv")
+#write.csv(rasterxy, "wartonmatch.csv")
 # convert xy to km
 rasterxy$X <- rasterxy$x/1000 ; rasterxy$Y <- rasterxy$y/1000
-rasterXY <- rasterxy [c(5,6,3,4)]
-colnames(rasterXY)[3] <- "ELEV"
-colnames(rasterXY)[4] <- "TEMP"
-write.csv(rasterXY, "wartonmatch.csv")
+rasterXY <- rasterxy [c(6,7,3,4,5)]
+colnames(rasterXY)[3] <- "DIS_TER"
+colnames(rasterXY)[4] <- "ELEV"
+colnames(rasterXY)[5] <- "TEMP"
+write.csv(rasterXY, "env.csv", row.names=FALSE)
+# quadrature points not working.
+quad.1 = sample.quad(env.grid =rasterXY , sp.scale = 1, file = "Quad")
+
+
 #koala data
 kolaxy <- read.csv("wartondata\\kolaxy.csv", header = TRUE)
 kolaxy <- subset(kolaxy, y> 6901098 & y < 7000000, select=x:y) # limit y selection
@@ -29,12 +42,17 @@ kxy <- as.data.frame(kolaxy2[c(1,2)])
 kxy$X <- kxy$x/1000 ; kxy$Y <- kxy$y/1000
 kXY <- kxy [c(3,4)]
 
-write.csv(kXY, "koalaxy.csv")
+write.csv(kXY, "koalaxy.csv", row.names=FALSE)
 plot(kxy, add=TRUE)
+
+#read data from folder directly
+koalaxy <- read.csv("wartondata\\koalaxy.csv", header = TRUE)
+
+env <- read.csv("wartondata\\env.csv", header = TRUE)
 
 #########
 ppmForm = ~  poly(elev,temp, degree = 2) 
-ppmFit = ppmlasso(ppmForm, sp.xy = kXY, env.grid = rasterxy, sp.scale = 1)
+ppmFit = ppmlasso(ppmForm, sp.xy = koalaxy, env.grid = env, sp.scale = s1)
 # To predict using model-based control of observer bias (at min value for D_MAIN_RDS):
 newEnv = sss
 #newEnv$A.1 = min(stand.A.1)
@@ -52,3 +70,5 @@ findres(scales, sp.xy = kolaxy,
 # Diagnostic plots as in Fig 5:
 kenv = envelope(ppmFit, fun = Kinhom)
 resid.plot = diagnose(ppmFit, which = "smooth", type = "Pearson")
+
+#####
