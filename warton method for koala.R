@@ -31,11 +31,10 @@ colnames(rasterXYa)[1] <- "X"
 colnames(rasterXYa)[2] <- "Y"
 colnames(rasterXYa)[3] <- "DIS_TER"
 colnames(rasterXYa)[4] <- "ELEV"
-colnames(rasterXYa)[5] <- "TEMP
- erXYa <-  my rasterXYa$X/1000
- asterXYa$y/1000
- asterXY <- rasterxy [c(6,7,3,4,5)]
+colnames(rasterXYa)[5] <- "TEM"
 
+rasterXYaX <- rasterXYa$X/1000 
+rasterXYa$Y <- rasterXYa$Y/1000
 
 
 
