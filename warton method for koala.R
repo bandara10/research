@@ -6,27 +6,39 @@ library(spatial.tools)
 # Pre-standardise observer bias variables
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack")
 myenv <- list.files( path="wartondata", pattern="\\.tif$", full.names = TRUE) 
-
 myenv.stack <- stack(myenv)
-plot(myenv.stack[[1]])
-
 ### crop to extent to get square area
 plot(myenv.stack[[1]])
 newex <- drawExtent()
 stack.c <- crop(myenv.stack, newex)
 plot(stack.c)
+myenv.stack2 <- stack.c
 
+d <- (myenv.stack2[[1]])
+e <- (myenv.stack2[[2]])
+f <- (myenv.stack2[[3]])
 
-rasterxy <- as.data.frame(stack.c, xy=TRUE)
-rasterxy <- na.omit(rasterxy)
-#write.csv(rasterxy, "wartonmatch.csv")
-# convert xy to km
-rasterxy$X <- rasterxy$x/1000 ; rasterxy$Y <- rasterxy$y/1000
+dd <- rasterToPoints(d, spatial = TRUE)
+ee <- rasterToPoints(e, spatial = TRUE)
+ff <- rasterToPoints(f, spatial = TRUE)
+
+dd <- as.data.frame(dd)
+ee<- as.data.frame(ee)
+ff<- as.data.frame(ff)
+rasterXY <- cbind(ee$x, ee$y, dd$distance_tertiaryandlink, ee$elev, ff$temp)
+rasterXYa <- as.data.frame(rasterXY)
+colnames(rasterXYa)[1] <- "X"
+colnames(rasterXYa)[2] <- "Y"
+colnames(rasterXYa)[3] <- "DIS_TER"
+colnames(rasterXYa)[4] <- "ELEV"
+colnames(rasterXYa)[5] <- "TEMP
+terXYa <-  my rasterXYa$X/1000
+rasterXYa$y/1000
 rasterXY <- rasterxy [c(6,7,3,4,5)]
-colnames(rasterXY)[3] <- "DIS_TER"
-colnames(rasterXY)[4] <- "ELEV"
-colnames(rasterXY)[5] <- "TEMP"
-write.csv(rasterXY, "env.csv", row.names=FALSE)
+
+
+
+
 # quadrature points not working.
 quad.1 = sample.quad(env.grid =rasterXY , sp.scale = 1, file = "Quad")
 
