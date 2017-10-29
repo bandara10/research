@@ -47,18 +47,20 @@ st <- stack(arr, arrr)
 res(st) <- .5
 plot(st[[1]])
 
-stt <- as.data.frame(st, xy=TRUE)
+stt <- as.data.frame(st, xy=TRUE, na.rm=T)
 colnames(stt)[1] <- "X"
 colnames(stt)[2] <- "Y"
-stt[is.na(stt)] <- .0001
-
+stt[is.na(stt)] <- 0
+xydatan <- stt[c(1,2)]
 # quadrature points not working.
 quad.1 = sample.quad(env.grid =stt , sp.scale = 1, file = "Quad")
 
 
 #koala data
 kolaxy <- read.csv("wartondata\\kolaxy.csv", header = TRUE)
-kxy <- subset(kolaxy, y> 6951098 & y < 6991098, select=x:y) # limit y selection
+#kxy <- subset(kolaxy, y> 6951098 & y < 6991098, select=x:y) # limit y selection
+
+kolaxy <- read.csv("wartondata\\koalaxy.csv", header = TRUE) # in km.XY| go to ppmFrom
 
 # # minimum distace between kola 1000m
 # kolaxy$disttoitself = Lib_DistEstimatesToItself(kolaxy$x, kolaxy$y)
@@ -81,7 +83,7 @@ koalaxyT <- abc2[c(2,3)]
 
 #########
 ppmForm = ~  poly(TEMP,ELEV, degree = 2) 
-ppmFit = ppmlasso(ppmForm, sp.xy = koalaxyT, env.grid = stt, sp.scale = 1)
+ppmFit = ppmlasso(ppmForm, sp.xy = kolaxy, env.grid = stt, sp.scale = 1)
 # To predict using model-based control of observer bias (at min value for D_MAIN_RDS):
 newEnv = stt
 #newEnv$A.1 = min(stand.A.1)
@@ -93,8 +95,8 @@ xy.rr <- rasterFromXYZ(as.data.frame(predictions)[, c("X", "Y", "pred.biasCorrec
 plot(xy.rr, las=0)
 # To find the resolution (in the range from 0.5 to 16 km):
 scales = c(0.5, 1, 2, 4, 8, 16)
-findres(scales, sp.xy = kolaxy,
-        env.grid = sss, formula = ppmForm)
+findres(scales, sp.xy = koalaxyT,
+        env.grid = stt, formula = ppmForm)
 #which returns the log-likelihood at each scale, difference < 2 at 1km scale
 # Diagnostic plots as in Fig 5:
 kenv = envelope(ppmFit, fun = Kinhom)
