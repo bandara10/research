@@ -7,12 +7,6 @@ library(spatial.tools)
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack")
 myenv <- list.files( path="wartondata", pattern="\\.tif$", full.names = TRUE) 
 myenv.stack <- stack(myenv)
-### crop to extent to get square area
-# plot(myenv.stack[[1]])
-# newex <- drawExtent()
-# stack.c <- crop(myenv.stack, newex)
-# plot(stack.c)
-# myenv.stack2 <- stack.c
 
 d <- (myenv.stack[[1]])
 k <- (myenv.stack[[2]])
@@ -23,11 +17,7 @@ ee <- e[c(1,2)]
 ee$X  <- ee$x/1000 
 ee$Y <- ee$y/1000
 eee <- ee [c(3,4)]
-#bind this with raster valuves
-
-# sss <- as.data.frame(myenv.stack, centroids= TRUE,  xy = TRUE)
-# a <- sss[c(1,2,4)]
-# ar <- rasterFromXYZ(as.data.frame(a)[, c("x", "y", "elev")])
+# rasters as dataframes 
 
 dd <- as.data.frame(d)
 kk<- as.data.frame(k)
@@ -43,9 +33,17 @@ colnames(rasterXYa)[4] <- "TEMP"
 #rasterXYa$Y <- rasterXYa$Y/1000
 arr <- rasterFromXYZ(as.data.frame(rasterXYa)[, c("X", "Y", "TEMP")], res=1)
 arrr <- rasterFromXYZ(as.data.frame(rasterXYa)[, c("X", "Y", "ELEV")], res=1)
-st <- stack(arr, arrr)
-res(st) <- .5
-plot(st[[1]])
+# st <- stack(arr, arrr)
+# res(st) <- .5
+# plot(st[[1]])
+
+#chnaged reolution 34*34 to 100 *102
+r <- raster(ncol = 200, nrow = 200)
+extent(r) <- extent(arr)
+arr_resam <- resample(arr,r)
+arrr_resam <- resample(arrr,r)
+
+st <- stack(arr_resam,arrr_resam)
 
 stt <- as.data.frame(st, xy=TRUE, na.rm=T)
 colnames(stt)[1] <- "X"
@@ -53,6 +51,9 @@ colnames(stt)[2] <- "Y"
 stt[is.na(stt)] <- 0
 xydatan <- stt[c(1,2)]
 # quadrature points not working.
+
+
+plot(sbd)
 quad.1 = sample.quad(env.grid =stt , sp.scale = 1, file = "Quad")
 
 
