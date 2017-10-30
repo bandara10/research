@@ -28,7 +28,7 @@ xydatan <- stt[c(1,2)]
 # sbd <- rasterFromXYZ(as.data.frame(stt)[, c("X", "Y", "temp")])
 # plot(sbd)
 
-quad.1 = sample.quad(env.grid =stt , sp.scale = 1, file = "Quad") # this is quadrature points to be use for the analysis.
+#quad.1 = sample.quad(env.grid =stt , sp.scale = 1, file = "Quad") # this is quadrature points to be use for the analysis.
 
 
 #koala data
@@ -36,7 +36,7 @@ kolaxy <- read.csv("wartondata\\koalaxy.csv", header = TRUE) # in km.XY| go to p
 kolaxy2 <- subset(kolaxy, X > 442 & X < 540)
 kolaxyT <- subset(kolaxy2, Y > 6902 & Y < 7000) # xy within the area only.
 #########
-ppmForm = ~  poly(temp,elev, degree = 1) 
+ppmForm = ~  poly(temp,elev, degree = 1) + poly(distance_tertiaryandlink, degree = 1)
 ppmFit = ppmlasso(ppmForm, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1)
 # To predict using model-based control of observer bias (at min value for D_MAIN_RDS):
 newEnv = stt
