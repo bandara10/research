@@ -57,7 +57,7 @@ quad.1 = sample.quad(env.grid =stt , sp.scale = 1, file = "Quad")
 
 
 #koala data
-kolaxy <- read.csv("wartondata\\kolaxy.csv", header = TRUE)
+#kolaxy <- read.csv("wartondata\\kolaxy.csv", header = TRUE)
 #kxy <- subset(kolaxy, y> 6951098 & y < 6991098, select=x:y) # limit y selection
 
 kolaxy <- read.csv("wartondata\\koalaxy.csv", header = TRUE) # in km.XY| go to ppmFrom
@@ -66,16 +66,16 @@ kolaxy <- read.csv("wartondata\\koalaxy.csv", header = TRUE) # in km.XY| go to p
 # kolaxy$disttoitself = Lib_DistEstimatesToItself(kolaxy$x, kolaxy$y)
 # kolaxy2 = subset(kolaxy, kolaxy$disttoitself > 100)
 # kxy <- as.data.frame(kolaxy2[c(1,2)])
-kxy$X <- kxy$x/1000 ; kxy$Y <- kxy$y/1000
-kXY <- kxy [c(3,4)]
+#kxy$X <- kxy$x/1000 ; kxy$Y <- kxy$y/1000
+#kXY <- kxy [c(3,4)]
 
 #kXY1<- kXY[sample(nrow(kXY), 100), ]
 # select points fall within the raster. rasterise a variable(arr). extract valuves with points. remove na records.
-abc <- extract(arr, kXY)
-abc1 <- as.data.frame(abc)
-abc2 <- cbind(abc1, kXY)
-abc2 <- na.omit(abc2)
-koalaxyT <- abc2[c(2,3)]
+# #abc <- extract(arr, kXY)
+# abc1 <- as.data.frame(abc)
+# abc2 <- cbind(abc1, kXY)
+# abc2 <- na.omit(abc2)
+# koalaxyT <- abc2[c(2,3)]
 # #read data from folder directly
 #koalaxy <- read.csv("wartondata\\koalaxy.csv", header = TRUE)
 # 
