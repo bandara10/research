@@ -28,17 +28,17 @@ xydatan <- stt[c(1,2)]
 # test resolution on back transformatiotn
 # sbd <- rasterFromXYZ(as.data.frame(stt)[, c("X", "Y", "temp")])
 # plot(sbd)
-scales = c(0.5, 1, 1.2, 2, 4, 8, 16,32)
-quad.1 = sample.quad(env.grid =stt , scales, file = "Quad") # this is quadrature points to be use for the analysis.
-
-
-
-#A matrix containing locations of species presences in the first two columns and the interpolated
-#environmental data in the remaining columns
-
-
-species.env = env.var(kolaxyT, env.grid = stt, env.scale = .5,
-                      file.name = "Sp Env Data") # simialr to extract. isn`t it?
+# scales = c(0.5, 1, 1.2, 2, 4, 8, 16,32) # scales = sp.scale=1
+# stt = sample.quad(env.grid =stt , sp.scale= 1, file = "Quad") # this is quadrature points to be use for the analysis.
+# 
+# 
+# 
+# #A matrix containing locations of species presences in the first two columns and the interpolated
+# #environmental data in the remaining columns
+# 
+# 
+# species.env = env.var(kolaxyT, env.grid = stt, env.scale = .5,
+#                       file.name = "Sp Env Data") # simialr to extract. isn`t it?
 
 # A matrix dat.ppm with columns representing the latitude and longitude of presence locations and
 # quadrature points along with the associated environmental data, as well as a column Pres indicating
@@ -47,9 +47,9 @@ species.env = env.var(kolaxyT, env.grid = stt, env.scale = .5,
 
 # determines observation weights
 # and sets up the design matrix required for fitting a regularisation path
-species.ppm = ppmdat(sp.xy = kolaxyT, back.xy = stt,
-                     sp.scale = 1, file.name = "Sp PPM Data")
-summary(species.ppm)
+# species.ppm = ppmdat(sp.xy = kolaxyT, back.xy = stt,
+#                      sp.scale = 1, file.name = "Sp PPM Data")
+# summary(species.ppm)
 
 #########
 #########Pre-standardise observer bias variables
@@ -65,7 +65,7 @@ kolaxy <- read.csv("wartondata\\koalaxy.csv", header = TRUE) # in km.XY| go to p
 kolaxy2 <- subset(kolaxy, X > 442 & X < 540)
 kolaxyT <- subset(kolaxy2, Y > 6902 & Y < 7000) # xy within the area only.
 #########
-ppmForm = ~  poly(temp,elev, degree = 1)
+ppmForm = ~  poly(temp,elev,distance_tertiaryandlink,uhabit3, degree = 2)
 ppmFit = ppmlasso(ppmForm, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1, n.fits = 200)
 # To predict using model-based control of observer bias (at min value for D_MAIN_RDS):
 
