@@ -65,7 +65,7 @@ kolaxy <- read.csv("wartondata\\koalaxy.csv", header = TRUE) # in km.XY| go to p
 kolaxy2 <- subset(kolaxy, X > 442 & X < 540)
 kolaxyT <- subset(kolaxy2, Y > 6902 & Y < 7000) # xy within the area only.
 #########
-ppmForm = ~  poly(temp,elev,distance_tertiaryandlink,uhabit3, degree = 2)
+ppmForm = ~  poly(temp,elev,distance_tertiaryandlink,uhabit3, degree = 1)
 ppmFit = ppmlasso(ppmForm, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1, n.fits = 200)
 # To predict using model-based control of observer bias (at min value for D_MAIN_RDS):
 
