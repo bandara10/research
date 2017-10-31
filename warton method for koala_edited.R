@@ -7,7 +7,7 @@ library(spatial.tools)
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack")
 myenv <- list.files( path="wartondata", pattern="\\.tif$", full.names = TRUE) 
 myenv.stack <- stack(myenv)
-
+crs(myenv.stack) <- NA
 extent(myenv.stack) <- extent(c(xmin(myenv.stack), xmax(myenv.stack), ymin(myenv.stack), ymax(myenv.stack))/1000)
 
 #changed reolution .5
@@ -17,7 +17,8 @@ distance_tertiaryandlink <- resample(myenv.stack[[1]],r)
 elev <- resample(myenv.stack[[2]],r)
 temp <- resample(myenv.stack[[3]],r)
 uhabit3 <- resample(myenv.stack[[4]],r)
-plot(elev)
+plot(uhabit3)
+crs(elev) <- NA ;crs(distance_tertiaryandlink) <- NA; crs(temp) <- NA; crs(uhabit3) <- NA
 st <- stack(distance_tertiaryandlink,elev,temp,uhabit3 )
 
 stt <- as.data.frame(st, xy=TRUE, na.rm=T)
@@ -29,7 +30,7 @@ xydatan <- stt[c(1,2)]
 # sbd <- rasterFromXYZ(as.data.frame(stt)[, c("X", "Y", "temp")])
 # plot(sbd)
 # scales = c(0.5, 1, 1.2, 2, 4, 8, 16,32) # scales = sp.scale=1
-# stt = sample.quad(env.grid =stt , sp.scale= 1, file = "Quad") # this is quadrature points to be use for the analysis.
+#stt = sample.quad(env.grid =stt , sp.scale= 1, file = "Quad") # this is quadrature points to be use for the analysis.
 # 
 # 
 # 
@@ -62,15 +63,29 @@ newstt$distance_tertiaryandlink = min(stand.distance_tertiaryandlink)
 
 #koala data
 kolaxy <- read.csv("wartondata\\koalaxy.csv", header = TRUE) # in km.XY| go to ppmFrom
+
 kolaxy2 <- subset(kolaxy, X > 442 & X < 540)
 kolaxyT <- subset(kolaxy2, Y > 6902 & Y < 7000) # xy within the area only.
+
+# # create a radom points to see hwo it works.
+# bg <- randomPoints(uhabit3, 100 )
+# # set X and Y , rename
+# bg = cbind(bg,extract(uhabit3,bg[,1:2]))
+# str(bg)
+# # removes lines with no data
+# 
+# bgg = na.omit(bg)
+# bgg <- as.data.frame(bgg)
+# #coordinates(bgg) <- ~X+Y
+# plot(bgg, add = TRUE)
+
 #########
-ppmForm = ~  poly(temp,elev,distance_tertiaryandlink,uhabit3, degree = 1)
+ppmForm = ~  poly(temp,elev, degree = 1)
 ppmFit = ppmlasso(ppmForm, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1, n.fits = 200)
 # To predict using model-based control of observer bias (at min value for D_MAIN_RDS):
 
 #newEnv$A.1 = min(stand.A.1)
-pred.biasCorrect = predict(ppmFit, newdata=newstt)
+pred.biasCorrect = predict(ppmFit, newdata=stt)
 #newEnv$A.1 = min(stand.A.1)
 #pred.biasCorrect.1 = predict(ppmFit, newdata=sss)
 predictions <- cbind(xydatan, pred.biasCorrect)
@@ -78,7 +93,7 @@ xy.rr <- rasterFromXYZ(as.data.frame(predictions)[, c("X", "Y", "pred.biasCorrec
 plot(xy.rr, las=0)
 # To find the resolution (in the range from 0.5 to 16 km):
 scales = c(0.5, 1, 2, 4, 8, 16)
-findres(scales, sp.xy = kolaxyT, env.grid = stt, formula = ppmForm)
+findres(scales, coord = c("X", "Y"), sp.xy = kolaxyT, env.grid = stt, formula = ppmForm)
 #which returns the log-likelihood at each scale, difference < 2 at 1km scale
 # Diagnostic plots as in Fig 5:
 kenv = envelope(ppmFit, fun = Kinhom)
