@@ -9,23 +9,15 @@ myenv <- list.files( path="wartondata", pattern="\\.tif$", full.names = TRUE)
 myenv.stack <- stack(myenv)
 crs(myenv.stack) <- NA
 extent(myenv.stack) <- extent(c(xmin(myenv.stack), xmax(myenv.stack), ymin(myenv.stack), ymax(myenv.stack))/1000)
-
-#changed reolution .5
-r <- raster(ncol = 200, nrow = 200)
-extent(r) <- extent(myenv.stack[[3]])
-distance_tertiaryandlink <- resample(myenv.stack[[1]],r)
-elev <- resample(myenv.stack[[2]],r)
-temp <- resample(myenv.stack[[3]],r)
-uhabit3 <- resample(myenv.stack[[4]],r)
-plot(uhabit3)
-crs(elev) <- NA ;crs(distance_tertiaryandlink) <- NA; crs(temp) <- NA; crs(uhabit3) <- NA
-st <- stack(distance_tertiaryandlink,elev,temp,uhabit3 )
-
-stt <- as.data.frame(st, xy=TRUE, na.rm=T)
+#
+stt <- as.data.frame(myenv.stack, xy=TRUE, na.rm=T)
 colnames(stt)[1] <- "X"
 colnames(stt)[2] <- "Y"
 # stt[is.na(stt)] <- 0
 xydatan <- stt[c(1,2)]
+stt[] <- lapply(stt, as.integer)
+
+
 # test resolution on back transformatiotn
 # sbd <- rasterFromXYZ(as.data.frame(stt)[, c("X", "Y", "temp")])
 # plot(sbd)
@@ -67,38 +59,36 @@ kolaxy <- read.csv("wartondata\\koalaxy.csv", header = TRUE) # in km.XY| go to p
 kolaxy2 <- subset(kolaxy, X > 442 & X < 540)
 kolaxyT <- subset(kolaxy2, Y > 6902 & Y < 7000) # xy within the area only.
 
-# # create a radom points to see hwo it works.
-# bg <- randomPoints(uhabit3, 100 )
-# # set X and Y , rename
-# bg = cbind(bg,extract(uhabit3,bg[,1:2]))
-# str(bg)
-# # removes lines with no data
-# 
-# bgg = na.omit(bg)
-# bgg <- as.data.frame(bgg)
-# #coordinates(bgg) <- ~X+Y
-# plot(bgg, add = TRUE)
+
 
 #########
-ppmForm = ~  poly(temp,elev, degree = 1)
-ppmFit = ppmlasso(ppmForm, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1, n.fits = 200)
-# To predict using model-based control of observer bias (at min value for D_MAIN_RDS):
+ppmForm1 = ~  poly(temp,elev,uhabit3, degree = 1)+ poly(distance_tertiaryandlink, degree = 1)
+ppmFit1 = ppmlasso(ppmForm1, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1, n.fits = 200)
 
-#newEnv$A.1 = min(stand.A.1)
-pred.biasCorrect = predict(ppmFit, newdata=stt)
-#newEnv$A.1 = min(stand.A.1)
-#pred.biasCorrect.1 = predict(ppmFit, newdata=sss)
-predictions <- cbind(xydatan, pred.biasCorrect)
-xy.rr <- rasterFromXYZ(as.data.frame(predictions)[, c("X", "Y", "pred.biasCorrect")])
+pred.biasCorrectnot = predict(ppmFit1, newdata=stt)
+predictions <- cbind(xydatan, pred.biasCorrectnot)
+
+xy.rr <- rasterFromXYZ(as.data.frame(predictions)[, c("X", "Y", "pred.biasCorrectnot")])
 plot(xy.rr, las=0)
+
+# bias corrected
+ppmForm2 = ~  poly(temp,elev,uhabit3, degree = 1)+ poly(distance_tertiaryandlink, degree = 1)
+ppmFit2 = ppmlasso(ppmForm1, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1, n.fits = 200)
+pred.biasCorrect = predict(ppmFit2, newdata=newstt)
+predictions.correct <- cbind(xydatan, pred.biasCorrect)
+xy.rr2 <- rasterFromXYZ(as.data.frame(predictions.correct)[, c("X", "Y", "pred.biasCorrect")])
+plot(xy.rr2, las=0)
+
 # To find the resolution (in the range from 0.5 to 16 km):
 scales = c(0.5, 1, 2, 4, 8, 16)
-findres(scales, coord = c("X", "Y"), sp.xy = kolaxyT, env.grid = stt, formula = ppmForm)
+findres(scales, coord = c("X", "Y"), sp.xy = kolaxyT, env.grid = stt, formula = ppmForm1)
 #which returns the log-likelihood at each scale, difference < 2 at 1km scale
 # Diagnostic plots as in Fig 5:
-kenv = envelope(ppmFit, fun = Kinhom)
-resid.plot = diagnose(ppmFit, which = "smooth", type = "Pearson")
+kenv = envelope(ppmFit1, fun = Kinhom)
+resid.plot = diagnose(ppmFit1, which = "smooth", type = "Pearson")
 
+kenv = envelope(ppmFit2, fun = Kinhom)
+resid.plot = diagnose(ppmFit2, which = "smooth", type = "Pearson")
 
 
 #####
