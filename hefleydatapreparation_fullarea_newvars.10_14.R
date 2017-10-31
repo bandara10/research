@@ -27,7 +27,8 @@ library(usdm)
 library(ROCR)
 library(maptools)
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_syn\\renamed_vars")
-# Datapreparation:raster; data not trasformed.
+# variables renamed and selected based on vif.
+#Datapreparation:raster; data not trasformed. Koala data for from 2010-2015.
 # spatialEco pachage can trasformdata to norm", "rstd", "std", "stretch", "nl", "slog", "sr".
 # use #vif for varibale selection.  step function to select the best model. Then fit models ipp ignored and corrected models.
 #If you want to formally test the hypothesis of Complete Spatial Randomness you can do this using the chi-squared 
@@ -109,7 +110,7 @@ logistic
 #Hefley method GLM
 set.seed(1238) # we create detection probabilities using two methods. glm, rf
 #Detection model: steps as in Hefley`s code`
-Detection.model=glm(presence ~ distance_secondaryandlink, family= "binomial", data=Detection.data)
+Detection.model=glm(presence ~ city_dis+dis_tertiaryandlink+s3_residential_dist+visitorarea_dis, family= "binomial", data=Detection.data)
 
 summary(Detection.model)
 # check the prediction map right here. #use only the selected variabels as

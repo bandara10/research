@@ -20,9 +20,10 @@ plot(elev)
 st <- stack(distance_tertiaryandlink,elev,temp )
 
 stt <- as.data.frame(st, xy=TRUE, na.rm=T)
+stt[] <- lapply(stt, as.integer)
 colnames(stt)[1] <- "X"
 colnames(stt)[2] <- "Y"
-# stt[is.na(stt)] <- 0
+#stt[is.na(stt)] <- 0
 xydatan <- stt[c(1,2)]
 # test resolution on back transformatiotn
 # sbd <- rasterFromXYZ(as.data.frame(stt)[, c("X", "Y", "temp")])
@@ -36,7 +37,7 @@ kolaxy <- read.csv("wartondata\\koalaxy.csv", header = TRUE) # in km.XY| go to p
 kolaxy2 <- subset(kolaxy, X > 442 & X < 540)
 kolaxyT <- subset(kolaxy2, Y > 6902 & Y < 7000) # xy within the area only.
 #########
-ppmForm = ~  poly(temp,elev, degree = 1) 
+ppmForm = ~  poly(temp,elev,distance_tertiaryandlink, degree = 1) 
 ppmFit = ppmlasso(ppmForm, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1)
 
 
@@ -44,7 +45,7 @@ ppmFit = ppmlasso(ppmForm, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1)
 # To predict using model-based control of observer bias (at min value for D_MAIN_RDS):
 newEnv = stt
 #newEnv$A.1 = min(stand.A.1)
-pred.biasCorrect = predict(ppmFit, newdata=newstt)
+pred.biasCorrect = predict(ppmFit, newdata=stt)
 #newEnv$A.1 = min(stand.A.1)
 #pred.biasCorrect.1 = predict(ppmFit, newdata=sss)
 predictions <- cbind(xydatan, pred.biasCorrect)
@@ -52,7 +53,7 @@ xy.rr <- rasterFromXYZ(as.data.frame(predictions)[, c("X", "Y", "pred.biasCorrec
 plot(xy.rr, las=0)
 # To find the resolution (in the range from 0.5 to 16 km):
 scales = c(0.5, 1, 2, 4, 8, 16)
-findres(scales, sp.xy = kolaxy, env.grid = stt, formula = ppmForm)
+findres(scales, sp.xy = kolaxyT, env.grid = stt, formula = ppmForm)
 #which returns the log-likelihood at each scale, difference < 2 at 1km scale
 # Diagnostic plots as in Fig 5:
 kenv = envelope(ppmFit, fun = Kinhom)
