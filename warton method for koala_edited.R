@@ -7,9 +7,9 @@ library(spatial.tools)
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack")
 myenv <- list.files( path="wartondata", pattern="\\.tif$", full.names = TRUE) 
 myenv.stack <- stack(myenv)
-crs(myenv.stack) <- NA
+#crs(myenv.stack) <- NA
 extent(myenv.stack) <- extent(c(xmin(myenv.stack), xmax(myenv.stack), ymin(myenv.stack), ymax(myenv.stack))/1000)
-#
+plot(myenv.stack[[1]])
 stt <- as.data.frame(myenv.stack, xy=TRUE, na.rm=T)
 colnames(stt)[1] <- "X"
 colnames(stt)[2] <- "Y"
@@ -49,35 +49,43 @@ stt[] <- lapply(stt, as.integer)
 stand.distance_tertiaryandlink=scale.default(stt$distance_tertiaryandlink, center = TRUE, scale = TRUE) #standarise
 stt$distance_tertiaryandlink = stand.distance_tertiaryandlink
 
-# To predict using model-based control of observer bias (at min value for distance):
-newstt <- stt
-newstt$distance_tertiaryandlink = min(stand.distance_tertiaryandlink)
+stand.dis_visitor=scale.default(stt$dis_visitor, center = TRUE, scale = TRUE) #standarise
+stt$dis_visitor = stand.dis_visitor
+
+stand.dis_city=scale.default(stt$dis_city, center = TRUE, scale = TRUE) #standarise
+stt$dis_city = stand.dis_city
+
+
 
 #koala data
-kolaxy <- read.csv("wartondata\\koalaxy.csv", header = TRUE) # in km.XY| go to ppmFrom
+kolaxyT <- read.csv("wartondata\\koalaxy.csv", header = TRUE) # in km.XY| go to ppmFrom
 
-kolaxy2 <- subset(kolaxy, X > 442 & X < 540)
-kolaxyT <- subset(kolaxy2, Y > 6902 & Y < 7000) # xy within the area only.
+# kolaxy2 <- subset(kolaxy, X > 442 & X < 540)
+# kolaxyT <- subset(kolaxy2, Y > 6902 & Y < 7000) # xy within the area only.
 
 
 
 #########
-ppmForm1 = ~  poly(temp,elev,uhabit3, degree = 1)+ poly(distance_tertiaryandlink, degree = 1)
+ppmForm1 = ~  poly(temp, elev,uhabit3, degree = 2) + poly(dis_visitor, degree = 2)
 ppmFit1 = ppmlasso(ppmForm1, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1, n.fits = 200)
 
 pred.biasCorrectnot = predict(ppmFit1, newdata=stt)
 predictions <- cbind(xydatan, pred.biasCorrectnot)
 
 xy.rr <- rasterFromXYZ(as.data.frame(predictions)[, c("X", "Y", "pred.biasCorrectnot")])
-plot(xy.rr, las=0)
+plot(xy.rr)
 
 # bias corrected
-ppmForm2 = ~  poly(temp,elev,uhabit3, degree = 1)+ poly(distance_tertiaryandlink, degree = 1)
-ppmFit2 = ppmlasso(ppmForm1, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1, n.fits = 200)
+## To predict using model-based control of observer bias (at min value for distance):
+newstt <- stt
+newstt$stand.dis_visitor = min(stand.dis_visitor) # based on minimum distance
+
+ppmForm2 = ~  poly(temp,elev,uhabit3, degree = 2)+ poly(dis_visitor, degree = 2)
+ppmFit2 = ppmlasso(ppmForm2, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1, n.fits = 200)
 pred.biasCorrect = predict(ppmFit2, newdata=newstt)
 predictions.correct <- cbind(xydatan, pred.biasCorrect)
 xy.rr2 <- rasterFromXYZ(as.data.frame(predictions.correct)[, c("X", "Y", "pred.biasCorrect")])
-plot(xy.rr2, las=0)
+plot(xy.rr2)
 
 # To find the resolution (in the range from 0.5 to 16 km):
 scales = c(0.5, 1, 2, 4, 8, 16)
@@ -89,6 +97,13 @@ resid.plot = diagnose(ppmFit1, which = "smooth", type = "Pearson")
 
 kenv = envelope(ppmFit2, fun = Kinhom)
 resid.plot = diagnose(ppmFit2, which = "smooth", type = "Pearson")
+#newdata' had 8378 rows but variables found have 8655 rowsdata. check ppmfit data.
 
-
-#####
+#####species interaction at 5km. NO avaiability grid is supplied here. 
+#species.int = point.interactions(dat.ppm, 5)
+ai.fit = ppmlasso(ppmForm1, data = dat.ppm, family = "area.inter", r = 1.5)
+diagnose(ai.fit, which = "smooth", type = "Pearson")
+pred.inter = predict(ai.fit, newdata=newstt)
+pred.inter <- cbind(xydatan, pred.inter)
+xy.inter <- rasterFromXYZ(as.data.frame(pred.inter)[, c("X", "Y", "pred.inter")])
+plot(xy.inter)
