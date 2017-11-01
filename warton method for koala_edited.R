@@ -9,7 +9,7 @@ myenv <- list.files(path="wartondata", pattern="\\.tif$", full.names = TRUE) #pa
 myenv.stack <- stack(myenv)
 #crs(myenv.stack) <- NA
 extent(myenv.stack) <- extent(c(xmin(myenv.stack), xmax(myenv.stack), ymin(myenv.stack), ymax(myenv.stack))/1000)
-plot(myenv.stack[[1]])
+plot(myenv.stack)
 
 stt <- as.data.frame(myenv.stack, xy=TRUE, na.rm=T)
 #stt <- na.omit(stt)
@@ -48,48 +48,48 @@ stt[] <- lapply(stt, as.integer)
 
 #########
 #########Pre-standardise observer bias variables
+stt <- stt[c(-3,-4)] # without thses distance varibales.
 stand.distance_tertiaryandlink=scale.default(stt$distance_tertiaryandlink, center = TRUE, scale = TRUE) #standarise
 stt$distance_tertiaryandlink = stand.distance_tertiaryandlink
 
-stand.dis_visitor=scale.default(stt$dis_visitor, center = TRUE, scale = TRUE) #standarise
-stt$dis_visitor = stand.dis_visitor
+# stand.dis_visitor=scale.default(stt$dis_visitor, center = TRUE, scale = TRUE) #standarise
+# stt$dis_visitor = stand.dis_visitor
 
-stand.dis_city=scale.default(stt$dis_city, center = TRUE, scale = TRUE) #standarise
-stt$dis_city = stand.dis_city
-
+## To predict using model-based control of observer bias (at min value for distance):
+newstt <- stt
+newstt$distance_tertiaryandlink = min(stand.distance_tertiaryandlink) # based on minimum distance
 
 
 #koala data
 kolaxyT <- read.csv("wartondata\\koalaxy.csv", header = TRUE) # in km.XY| go to ppmFrom
-#coordinates(kolaxyT) <- ~X+Y
-#plot(kolaxyT, add=TRUE)
+# coordinates(kolaxyT) <- ~X+Y
+# plot(kolaxyT, add=TRUE)
 # kolaxy2 <- subset(kolaxy, X > 442 & X < 540)
 # kolaxyT <- subset(kolaxy2, Y > 6902 & Y < 7000) # xy within the area only.
 
 
 
 #########
-ppmForm1 = ~  poly(temp, elev, hpop, degree = 2) +poly(dis_visitor, degree = 2) 
+ppmForm1 = ~  poly(temp, elev, hpop,lot_density, degree = 2)  
 ppmFit1 = ppmlasso(ppmForm1, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1, n.fits = 200)
 
 pred.biasCorrectnot = predict(ppmFit1, newdata=stt)
 predictions <- cbind(xydatan, pred.biasCorrectnot)
 
-xy.rr <- rasterFromXYZ(as.data.frame(predictions)[, c("X", "Y", "pred.biasCorrectnot")])
-plot(xy.rr)
+pred.nct<- rasterFromXYZ(as.data.frame(predictions)[, c("X", "Y", "pred.biasCorrectnot")])
+plot(pred.nct)
 
 # bias corrected
-## To predict using model-based control of observer bias (at min value for distance):
-newstt <- stt
-newstt$stand.dis_visitor = min(stand.dis_visitor) # based on minimum distance
 
-ppmForm2 = ~  poly(temp,elev,hpop, degree = 2)+ poly(dis_visitor, degree = 2)
-ppmFit2 = ppmlasso(ppmForm2, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1, n.fits = 200)
+
+ppmForm2 = ~  poly(temp,elev,hpop,lot_density, degree = 2) + poly(distance_tertiaryandlink, degree = 2)
+ppmFit2 = ppmlasso(ppmForm2, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1, n.fits = 100)
 pred.biasCorrect = predict(ppmFit2, newdata=newstt)
 predictions.correct <- cbind(xydatan, pred.biasCorrect)
-xy.rr2 <- rasterFromXYZ(as.data.frame(predictions.correct)[, c("X", "Y", "pred.biasCorrect")])
-plot(xy.rr2)
-
+pred.ct <- rasterFromXYZ(as.data.frame(predictions.correct)[, c("X", "Y", "pred.biasCorrect")])
+plot(pred.ct)
+coordinates(kolaxyT) <- ~X+Y
+plot(kolaxyT, add=TRUE)
 # To find the resolution (in the range from 0.5 to 16 km):
 scales = c(0.5, 1, 2, 4, 8, 16)
 findres(scales, coord = c("X", "Y"), sp.xy = kolaxyT, env.grid = stt, formula = ppmForm1)
@@ -105,13 +105,13 @@ resid.plot = diagnose(ppmFit2, which = "smooth", type = "Pearson")
 #####species interaction at 5km. NO avaiability grid is supplied here. 
 #species.int = point.interactions(dat.ppm, 5)
  load("TestPPM.RData") # load dat.ppm
-ai.fit = ppmlasso(ppmForm1, data = dat.ppm, family = "area.inter", r = 3)
+ai.fit = ppmlasso(ppmForm1, data = dat.ppm, family = "area.inter", r = 2)
 diagnose(ai.fit, which = "smooth", type = "Pearson")
-pred.inter = predict(ai.fit, newdata=newstt)
-pred.inter <- cbind(xydatan, pred.inter)
-xy.inter <- rasterFromXYZ(as.data.frame(pred.inter)[, c("X", "Y", "pred.inter")])
-plot(xy.inter)
-writeRaster(xy.inter, "xy.tif")
+pred.interaction = predict(ai.fit, newdata=newstt)
+pred.inter.action <- cbind(xydatan, pred.interaction)
+pred.ct.inter <- rasterFromXYZ(as.data.frame(pred.inter.action)[, c("X", "Y", "pred.interaction")])
+plot(pred.ct.inter )
+writeRaster(pred.ct.inter , "pred.ct.inter .tif")
 
 ######
 bbr <- raster ("bbr.tif")  # bbr  is a dummy 1k resolution map not in meters.
