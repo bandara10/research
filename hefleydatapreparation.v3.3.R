@@ -11,7 +11,7 @@ setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack"
 
 #####  Step 1: read raster data from the folder and create a stack. ####
 
-myfullstack.a <- list.files(pattern="\\.tif") 
+myfullstack.a <- list.files(pattern="\\.tif$") 
 myfullstack = stack(myfullstack.a)
 
 #### Step 2: import koala .csv data from the full study land region. Full square study are consists of land and sea. ####
@@ -24,7 +24,7 @@ hefleydata.s = as.data.frame(hefleydata.s)
 #### Step 3:  extract X=vector.boot from raster anad combine wth hefleydata, presence and group varibels.####
 myFD = cbind(hefleydata.s,raster::extract(myfullstack,hefleydata.s))
 # get presence and group vriables
-myFD1 = cbind(myFD,hefleydata [6]) # get presence and group data. 
+myFD1 = cbind(myFD,hefleydata [6:7]) # get presence and group data. 
 myFD1 = na.omit(myFD1) # remove all NA valuves
 
 #### Step 4: select presence and abnsences data and combine with. #### 
@@ -46,16 +46,16 @@ notdetected <- ZTGLM.myFD1[-train,]
 notdetected$presence <- 0
 ##### Step 7: Create the final data sets for the analysis####
 Detection.data= rbind(detected,notdetected) 
-Detection.data[53] <- lapply(Detection.data[53], as.numeric)
+Detection.data[55] <- lapply(Detection.data[55], as.numeric)
 str(Detection.data)
 Detection.data <- Detection.data[c(-1,-2)]
-Detection.data <- subset(Detection.data, select=c(50, 1:49, 51))
+Detection.data <- subset(Detection.data, select=c(52, 53, 1:51)) # reordered presence and group.
 IPP.data=rbind(detected, ZTGLM.myFD4) #IPP.data comes from detected data plus no koalas data from myFD1.
-IPP.data <- IPP.data[c(-1,-2,-53)]
-IPP.data <- subset(IPP.data, select=c(50, 1:49))
+#IPP.data <- IPP.data[c(-1,-2,-53)]
+#IPP.data <- subset(IPP.data, select=c(50, 1:49))
 ZTGLM.data=(detected)##ZTGLM.data# get the 80 rows selected.
-ZTGLM.data <- ZTGLM.data[c(-1,-2,-52)]
-ZTGLM.data <- subset(ZTGLM.data, select=c(50, 1:49))
+#ZTGLM.data <- ZTGLM.data[c(-1,-2,-52)]
+#ZTGLM.data <- subset(ZTGLM.data, select=c(50, 1:49))
 ##### Step 8:  analysis without detection correction factor#######
 IPP.ignored=glm(presence~twi + tpo + temp + aspect + elev+habit2pc+hpop+lot_density+sbd,family="binomial",weights=10000^(1-presence),data=IPP.data) # IPP.data2 added.
 summary(IPP.ignored)
@@ -81,7 +81,9 @@ ZTGLM.data$p.det=p.det
 IPP.corrected= glm(presence~twi + tpo + temp + aspect + elev+habit2pc+hpop+lot_density+sbd,
                    family="binomial",data=IPP.data)
 summary(IPP.corrected)
-
+##### model group or total number of koalas in a grid using poisson distribution. 
+IPP.corrected= glm(group~twi + tpo + temp + aspect + elev+habit2pc+hpop+lot_density+sbd,
+                   weights=1/p.det,family="poisson",data=IPP.data)
 ####Step 6: Fit an zero-truncated Poisson generalized linear model that weights the log-likelihood by 1/p.det.####
 
 #use only the significant covariates, tpo +hpop+lot_density+sbd
