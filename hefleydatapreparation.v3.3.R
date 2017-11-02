@@ -96,7 +96,7 @@ myPred = predict(myfullstack, Detection.model, type = "response")
 plot(myPred, xlab = "x", ylab= "y",main="detection model")
 
 myPred2 = predict(myfullstack, IPP.corrected, type = "response")
-plot(myPred2, xlab = "x", ylab= "y",main=" IPP model-intensity of group or ??,")
+plot(myPred2, xlab = "x", ylab= "y",main=" IPP model- number of koalas")
 myPred3 = predict(myfullstack, ZTGLM.corrected, type = "response")
 plot(myPred3,  main="ZTGLM-Number of koalas in a grid model") 
 writeRaster(myPred3, "ZTGLM.tif")
