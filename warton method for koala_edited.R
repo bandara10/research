@@ -8,6 +8,8 @@ setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack"
 myenv <- list.files(path="wartondata", pattern="\\.tif$", full.names = TRUE) #path="wartondata", 
 myenv.stack <- stack(myenv)
 #crs(myenv.stack) <- NA
+#stt$Y <- round(stt$Y, digits = -3) # nearest 1000   # make 442329  to 442000 but need it to be above 442300
+#stt$X <- round(stt$X, digits = -3) # nearest 1000
 extent(myenv.stack) <- extent(c(xmin(myenv.stack), xmax(myenv.stack), ymin(myenv.stack), ymax(myenv.stack))/1000)
 plot(myenv.stack)
 
@@ -43,11 +45,14 @@ names(stt)
 stt <- stt[c(-3)] # without thses distance varibales.
 stand.distance_tertiaryandlink=scale.default(stt$distance_tertiaryandlink, center = TRUE, scale = TRUE) #standarise
 stt$distance_tertiaryandlink = stand.distance_tertiaryandlink
-
+# # 
 stand.dis_visitor=scale.default(stt$dis_visitor, center = TRUE, scale = TRUE) #standarise
 stt$dis_visitor = stand.dis_visitor
-
-
+stt$
+#where is newstt?
+newstt <- stt
+newstt$dis_visitor = min(dis_visitor)
+newstt$distance_tertiaryandlink = min(distance_tertiaryandlink)
 #koala data
 kolaxyT <- read.csv("wartondata\\koalaxy.csv", header = TRUE) # in km.XY| go to ppmFrom
 # coordinates(kolaxyT) <- ~X+Y
@@ -58,7 +63,7 @@ kolaxyT <- read.csv("wartondata\\koalaxy.csv", header = TRUE) # in km.XY| go to 
 
 
 ######### Step 1.
-load(file="datanew.RData", .GlobalEnv)
+#load(file="datanew.RData", .GlobalEnv)
 
 # Model 1. no distance variables.
 ppmForm1 = ~  poly(temp, elev, hpop,lot_density, degree = 2)  
@@ -67,17 +72,27 @@ ppmForm1 = ~  poly(temp, elev, hpop,lot_density, degree = 2)
 scales = c(0.5, 1, 2, 4, 8, 16)
 findres(scales, coord = c("X", "Y"), sp.xy = kolaxyT, env.grid = stt, formula = ppmForm1)
 ## fit the model
-ppmFit1 = ppmlasso(ppmForm1, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1, n.fits = 200)#criterion = "nlgc", alpha= 0.7
+ppmFit1 = ppmlasso(ppmForm1, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1, n.fits = 200, standardise = TRUE)#criterion = "nlgc", alpha= 0.7
 ### predictions
 pred.biasCorrectnot = predict(ppmFit1, newdata=stt)
+
 predictions <- cbind(xydatan, pred.biasCorrectnot)
 
 ##### create a raster map.
 pred.nct<- rasterFromXYZ(as.data.frame(predictions)[, c("X", "Y", "pred.biasCorrectnot")])
 plot(pred.nct, main=" koala density-warton method/ bias not corrected")
+plot(pred.nct, zlim = c(0, 0.35), main=" koala density-warton method/ bias not corrected")
 #### residulas model 1.
-kenv = envelope(ppmFit1, fun = Kinhom)
 resid.plot = diagnose(ppmFit1, which = "smooth", type = "Pearson", main="smoothed pesrson residulas bias NOT corrected model")
+### with lurking varibale plots.
+diagnose.ppmlasso(ppmFit1)
+
+# assessing GOF using 95% simulation envelop
+kenv = envelope.ppmlasso(ppmFit1, fun = Kest)
+plot(kenv)
+####     envelope(ppmFit1,Kinhom, nsim = 10) ## asses the gof via  95% simulation envelope of K (r)
+
+
 
 
 #####    Step 2
@@ -94,7 +109,9 @@ scales = c(0.5, 1, 2, 4, 8, 16)
 findres(scales, coord = c("X", "Y"), sp.xy = kolaxyT, env.grid = stt, formula = ppmForm2)
 
 ### for the model
-ppmFit2 = ppmlasso(ppmForm2, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1, n.fits = 100)
+ppmFit2 = ppmlasso(ppmForm2, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1, n.fits = 100, standardise = TRUE)
+
+
 pred.biasCorrect = predict(ppmFit2, newdata=newstt)
 
 ####  create a raster map
@@ -104,6 +121,13 @@ plot(pred.ct, main=" koala density-warton method/ bias corrected")
 ### residulas:
 kenv = envelope(ppmFit2, fun = Kinhom) # simulated envelop for summary function
 resid.plot = diagnose(ppmFit2, which = "smooth", type = "Pearson", main="smoothed pesrson residulas bias corrected model")
+### with lurking varibale plots.
+diagnose.ppmlasso(ppmFit2)
+
+
+#K-envelop
+kenv2 = envelope.ppmlasso(ppmFit2, fun = Kest)
+plot(kenv2)
 # coordinates(kolaxyT) <- ~X+Y
 # plot(kolaxyT, add=TRUE)
 
@@ -112,12 +136,15 @@ resid.plot = diagnose(ppmFit2, which = "smooth", type = "Pearson", main="smoothe
 #species interaction at r km. Provide a avaiability grid is supplied here if some areas are inaccesible.. 
 #species.int = point.interactions(dat.ppm, 5)
  load("TestPPM.RData") # load dat.ppm
-ai.fit = ppmlasso(ppmForm1, data = dat.ppm, family = "area.inter", r = 1.2)
+ai.fit = ppmlasso(ppmForm2, data = dat.ppm, family = "area.inter", r = 2)
 diagnose(ai.fit, which = "smooth", type = "Pearson")
 pred.interaction = predict(ai.fit, newdata=newstt)
 pred.inter.action <- cbind(xydatan, pred.interaction)
 pred.ct.inter <- rasterFromXYZ(as.data.frame(pred.inter.action)[, c("X", "Y", "pred.interaction")])
 plot(pred.ct.inter )
+
+kenv3 = envelope.ppmlasso(ai.fit, fun = Kest)
+plot(kenv3)
 #writeRaster(pred.ct.inter , "pred.ct.inter .tif")
 
 ###DO not RUN This is for ArcGIS mapping for better resolution.######
