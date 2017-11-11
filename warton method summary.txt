@@ -1,0 +1,16 @@
+1. Generate quadrature points : loading gives dat.quad.
+	quad.1 = sample.quad(env.grid = backg, sp.scale = 1, file = "Quad")
+
+2. sp. dat: Interpolating enviromental data to species locations # here is the problem. chnage env.grid to quad.1
+	species.env = env.var(sp.xy, env.grid = backg, env.scale = 0.5, file.name = "C Eximia Env")
+
+3. Setting data for model fitting
+	species.ppm = ppmdat(sp.xy = sp.xy, env.grid = backg, sp.scale = 1, file.name = "C Eximia PPM").
+
+
+or supply input from above 1 and 2 
+
+species.ppm = ppm.dat(sp.xy = "C Eximia", sp.scale = 1, quad.file = "Quad", file.name = "C Eximia PPM").
+
+#### This works 
+species.ppm = ppmdat(kolaxyT, sp.scale = 1, stt, sp.dat,  file.name = "rrr")

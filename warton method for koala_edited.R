@@ -48,11 +48,11 @@ stt$distance_tertiaryandlink = stand.distance_tertiaryandlink
 # # 
 stand.dis_visitor=scale.default(stt$dis_visitor, center = TRUE, scale = TRUE) #standarise
 stt$dis_visitor = stand.dis_visitor
-stt$
+
 #where is newstt?
 newstt <- stt
-newstt$dis_visitor = min(dis_visitor)
-newstt$distance_tertiaryandlink = min(distance_tertiaryandlink)
+newstt$dis_visitor = min(stand.dis_visitor)
+newstt$distance_tertiaryandlink = min(stand.distance_tertiaryandlink)
 #koala data
 kolaxyT <- read.csv("wartondata\\koalaxy.csv", header = TRUE) # in km.XY| go to ppmFrom
 # coordinates(kolaxyT) <- ~X+Y
@@ -72,7 +72,7 @@ ppmForm1 = ~  poly(temp, elev, hpop,lot_density, degree = 2)
 scales = c(0.5, 1, 2, 4, 8, 16)
 findres(scales, coord = c("X", "Y"), sp.xy = kolaxyT, env.grid = stt, formula = ppmForm1)
 ## fit the model
-ppmFit1 = ppmlasso(ppmForm1, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1, n.fits = 200, standardise = TRUE)#criterion = "nlgc", alpha= 0.7
+ppmFit1 = ppmlasso(ppmForm1, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1, n.fits = 200)#criterion = "nlgc", alpha= 0.7
 ### predictions
 pred.biasCorrectnot = predict(ppmFit1, newdata=stt)
 
@@ -118,6 +118,7 @@ pred.biasCorrect = predict(ppmFit2, newdata=newstt)
 predictions.correct <- cbind(xydatan, pred.biasCorrect)
 pred.ct <- rasterFromXYZ(as.data.frame(predictions.correct)[, c("X", "Y", "pred.biasCorrect")])
 plot(pred.ct, main=" koala density-warton method/ bias corrected")
+plot(pred.ct, zlim = c(0, 0.35), main=" koala density-warton method/corrected")
 ### residulas:
 kenv = envelope(ppmFit2, fun = Kinhom) # simulated envelop for summary function
 resid.plot = diagnose(ppmFit2, which = "smooth", type = "Pearson", main="smoothed pesrson residulas bias corrected model")

@@ -1,6 +1,7 @@
 
 #detection data comes from Hefley method. 
 # select varibales use for this analysis from hefley data preparation.
+#raster data cannot be used for this method.
 d <-  Detection.data[c(10,21,34, 51)] # presence, hpop+dis_visitor + distance_tertiaryandlink
 s <-dropLayer(myfullstack,c( 1:8, 10:19, 21:32, 34:50))
 

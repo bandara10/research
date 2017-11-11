@@ -65,8 +65,8 @@ summary(ZTGLM.ignored)
 #############  .
 set.seed(123)
 #Detection model: steps as in Hefley`s code`
-Detection.model=glm(presence~  distance_pedestrian + s1_residential_dist + distance_trunkandlink +
-                      distance_tertiaryandlink+ scale(group),family= "binomial", data=Detection.data)
+Detection.model=glm(presence~  hpop, dis_visitor + s1_residential_dist + distance_trunkandlink +
+                      distance_tertiaryandlink,family= "binomial", data=Detection.data)
 unclass(summary(Detection.model))
 #####Step 4: Estimate the probability of detection for each presence-only location.####
 p.det=ilogit(predict(Detection.model,new=ZTGLM.data))# chnaged myD to ZTGLM.data length =461. 3 X=vector.boot 
@@ -82,7 +82,7 @@ IPP.corrected= glm(presence~twi + tpo + temp + aspect + elev+habit2pc+hpop+lot_d
                    family="binomial",data=IPP.data)
 summary(IPP.corrected)
 ##### model group or total number of koalas in a grid using poisson distribution. 
-IPP.corrected= glm(group~twi + tpo + temp + aspect + elev+habit2pc+hpop+lot_density+sbd,
+IPP.corrected= glm(group~hpop+lot_density+elev, lot_density,
                    weights=1/p.det,family="poisson",data=IPP.data)
 ####Step 6: Fit an zero-truncated Poisson generalized linear model that weights the log-likelihood by 1/p.det.####
 
@@ -91,7 +91,7 @@ ZTGLM.corrected = vglm(group~twi+tpo+temp+aspect+elev+habit2pc+hpop+lot_density+
                        ,weights=1/p.det,family="pospoisson",data=ZTGLM.data)
 summary(ZTGLM.corrected)
 
-# step 7:  Map predictions
+# step 7:  Map predictions#a <- subset(myfullstack,c(33,15,39,21,20))
 myPred = predict(myfullstack, Detection.model, type = "response")
 plot(myPred, xlab = "x", ylab= "y",main="detection model")
 

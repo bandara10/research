@@ -3,13 +3,18 @@ data(BlueMountains)
 str(BlueMountains)
 #load(file="BlueMountains.RData")
 # Pre-standardise observer bias variables
-str(ava)
+quad.1 = sample.quad(env.grid = backg.env, sp.scale = 1, file = "Quad")
+#write.csv(quad.1, "quad.1.csv")
+plot(quad.1)
 backg.env = BlueMountains$env
+#coordinates(backg.env) <- ~X+Y
+plot(backg.env)
 backg.env <- backg.env[c(1,2,6,7)]
 str(backg.env)
 head(backg.env)
 #head(backg.env)
 eucalypt = BlueMountains$eucalypt
+write.csv(eucalypt, "eucalypt.csv")
 #coordinates(eucalypt) <- ~X+Y
 #coordinates(backg.env) <- ~X+Y
 #plot(backg.env)
@@ -34,8 +39,7 @@ backg.env$D_URBAN = stand.D_MAIN_RDS
 #backg.env$D_URBAN = stand.D_URBAN
 # To fit a Poisson point process model at a spatial resolution of 1km
 ppmForm = ~ poly(RAIN_ANN,TMP_MAX, degree = 2) 
-ppmFit = ppmlasso(ppmForm, sp.xy = eucalypt,
-                  env.grid = backg.env, sp.scale = 1)
+ppmFit = ppmlasso(ppmForm, sp.xy = eucalypt, env.grid = backg.env, sp.scale = 1)
 load(file="SpEnvData.RData")
 load(file="TestPPM.RData")
 # To predict using model-based control of observer bias (at min value for D_MAIN_RDS):
@@ -130,5 +134,5 @@ resid.plot = diagnose(ppmFit, which = "smooth", type = "Pearson")
 resid.plot.2 = diagnose(ppmFit.2, which = "smooth", type = "Pearson")
 resid.plot.3 = diagnose(ppmFit.3, which = "smooth", type = "Pearson")
 
-[1] "Output saved in the file SpEnvData.RData"
-[1] "Output saved in the file TestPPM.RData"
+# "Output saved in the file SpEnvData.RData"
+# "Output saved in the file TestPPM.RData"

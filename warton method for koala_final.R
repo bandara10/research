@@ -7,7 +7,8 @@ library(spatial.tools)
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack")
 myenv <- list.files( path="wartondata", pattern="\\.tif$", full.names = TRUE) 
 myenv.stack <- stack(myenv)
-
+names
+myenv
 extent(myenv.stack) <- extent(c(xmin(myenv.stack), xmax(myenv.stack), ymin(myenv.stack), ymax(myenv.stack))/1000)
 
 #changed reolution .5
