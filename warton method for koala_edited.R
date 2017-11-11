@@ -93,7 +93,28 @@ plot(kenv)
 ####     envelope(ppmFit1,Kinhom, nsim = 10) ## asses the gof via  95% simulation envelope of K (r)
 
 
+#### model with distance covariates but not bias corrected
+####
+#####
 
+ppmForm10 = ~  poly(temp,elev,hpop,lot_density, dis_visitor, distance_tertiaryandlink, degree = 2)
+# To find the resolution (in the range from 0.5 to 16 km):
+
+ppmFit10 = ppmlasso(ppmForm10, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1, n.fits = 100, standardise = TRUE)
+
+
+pred.distance_vars = predict(ppmFit10, newdata=stt)
+
+####  create a raster map
+predictions.distance_var <- cbind(xydatan, pred.distance_vars)
+pred.dv <- rasterFromXYZ(as.data.frame(predictions.distance_var)[, c("X", "Y", "pred.distance_vars")])
+plot(pred.dv, main=" koala density-warton method/ with distance ")
+plot(pred.dv, zlim = c(0, 0.35), main=" koala density-warton method/corrected")
+### residulas:
+kenv = envelope(ppmFit10, fun = Kinhom) # simulated envelop for summary function
+resid.plot = diagnose(ppmFit10, which = "smooth", type = "Pearson", main="smoothed pesrson residulas bias corrected model")
+### with lurking varibale plots.
+diagnose.ppmlasso(ppmFit10)
 
 #####    Step 2
 # Model 2. bias corrected model with distance variables.
