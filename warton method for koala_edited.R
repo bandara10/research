@@ -3,6 +3,7 @@ library(raster)
 library(sp)
 library(rgdal)
 library(spatial.tools)
+library(quickPlot)
 # Pre-standardise observer bias variables
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack")
 myenv <- list.files(path="wartondata", pattern="\\.tif$", full.names = TRUE) #path="wartondata", 
@@ -53,20 +54,19 @@ stt$dis_visitor = stand.dis_visitor
 newstt <- stt
 newstt$dis_visitor = min(stand.dis_visitor)
 newstt$distance_tertiaryandlink = min(stand.distance_tertiaryandlink)
+
 #koala data
 kolaxyT <- read.csv("wartondata\\koalaxy.csv", header = TRUE) # in km.XY| go to ppmFrom
-# coordinates(kolaxyT) <- ~X+Y
+ #coordinates(kolaxyT) <- ~X+Y
 # plot(kolaxyT, add=TRUE)
 # kolaxy2 <- subset(kolaxy, X > 442 & X < 540)
 # kolaxyT <- subset(kolaxy2, Y > 6902 & Y < 7000) # xy within the area only.
-
-
 
 ######### Step 1.
 #load(file="datanew.RData", .GlobalEnv)
 
 # Model 1. no distance variables.
-ppmForm1 = ~  poly(temp, elev, hpop,lot_density, degree = 2)  
+ppmForm1 = ~  poly(AnnualMeanTemperature,AnnualPrecipitation, degree = 2)  
 
 # To find the resolution (in the range from 0.5 to 16 km):
 scales = c(0.5, 1, 2, 4, 8, 16)
@@ -80,8 +80,10 @@ predictions <- cbind(xydatan, pred.biasCorrectnot)
 
 ##### create a raster map.
 pred.nct<- rasterFromXYZ(as.data.frame(predictions)[, c("X", "Y", "pred.biasCorrectnot")])
+
 plot(pred.nct, main=" koala density-warton method/ bias not corrected")
-plot(pred.nct, zlim = c(0, 0.35), main=" koala density-warton method/ bias not corrected")
+
+plot(pred.nct, zlim = c(0, 0.2392671), main=" koala density-warton method/ bias not corrected")
 #### residulas model 1.
 resid.plot = diagnose(ppmFit1, which = "smooth", type = "Pearson", main="smoothed pesrson residulas bias NOT corrected model")
 ### with lurking varibale plots.
@@ -186,3 +188,8 @@ stt[] <- lapply(stt, as.integer)
 # ###formal argument "scales" matched by multiple actual arguments
 # Becaus the scales arguement is pre-set in the command, we cannot change it directly.
 # However, we can alter it with update().
+# Plot(myenv.stack)
+# Plot(kolaxyT)
+#Plot(kolaxyT, addTo = "myenv.stack$hpop")
+#https://cran.rstudio.com/web/packages/quickPlot/vignettes/iii-plotting.html
+
