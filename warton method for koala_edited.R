@@ -12,7 +12,7 @@ myenv.stack <- stack(myenv)
 #stt$Y <- round(stt$Y, digits = -3) # nearest 1000   # make 442329  to 442000 but need it to be above 442300
 #stt$X <- round(stt$X, digits = -3) # nearest 1000
 extent(myenv.stack) <- extent(c(xmin(myenv.stack), xmax(myenv.stack), ymin(myenv.stack), ymax(myenv.stack))/1000)
-plot(myenv.stack)
+#plot(myenv.stack$fpc.corrected)
 
 stt <- as.data.frame(myenv.stack, xy=TRUE, na.rm=T)
 #stt <- na.omit(stt)
@@ -22,7 +22,7 @@ colnames(stt)[2] <- "Y"
 xydatan <- stt[c(1,2)]
 stt[] <- lapply(stt, as.integer)
 names(stt)
-
+head(stt)
 #abc = sample.quad(env.grid =stt , sp.scale= 1, file = "Quad") # this is quadrature points to be use for the analysis.
 # 
 # 
@@ -43,7 +43,7 @@ names(stt)
 
 #########
 #########Pre-standardise observer bias variables
-stt <- stt[c(-3)] # without thses distance varibales.
+#stt <- stt[c(-3)] # without thses distance varibales.
 stand.distance_tertiaryandlink=scale.default(stt$distance_tertiaryandlink, center = TRUE, scale = TRUE) #standarise
 stt$distance_tertiaryandlink = stand.distance_tertiaryandlink
 # # 
@@ -57,16 +57,22 @@ newstt$distance_tertiaryandlink = min(stand.distance_tertiaryandlink)
 
 #koala data
 kolaxyT <- read.csv("wartondata\\koalaxy.csv", header = TRUE) # in km.XY| go to ppmFrom
- #coordinates(kolaxyT) <- ~X+Y
-# plot(kolaxyT, add=TRUE)
-# kolaxy2 <- subset(kolaxy, X > 442 & X < 540)
-# kolaxyT <- subset(kolaxy2, Y > 6902 & Y < 7000) # xy within the area only.
+
+koalafull <- read.csv("wartondata\\mydatasighting_cleaned.csv", header = TRUE) # not in decimals.
+kolaxyT <- koalafull[c(117,127,128)]
+kolaxyT <- subset(kolaxyT, yearnew == 2010)
+kolaxyT <- kolaxyT[c(2,3)]
+kolaxyT <- kolaxyT/1000
+#coordinates(kolaxyT) <- ~X+Y
+#plot(kolaxyT, add=TRUE)
+kolaxy2 <- subset(kolaxyT, X > 442 & X < 540)
+kolaxyT <- subset(kolaxy2, Y > 6902 & Y < 7000) # xy within the area only.
 
 ######### Step 1.
 #load(file="datanew.RData", .GlobalEnv)
 
 # Model 1. no distance variables.
-ppmForm1 = ~  poly(AnnualMeanTemperature,AnnualPrecipitation, degree = 2)  
+ppmForm1 = ~  poly(AnnualMeanTemperature,fpcnew,lot_density, AnnualPrecipitation, degree = 2)  
 
 # To find the resolution (in the range from 0.5 to 16 km):
 scales = c(0.5, 1, 2, 4, 8, 16)
@@ -83,7 +89,7 @@ pred.nct<- rasterFromXYZ(as.data.frame(predictions)[, c("X", "Y", "pred.biasCorr
 
 plot(pred.nct, main=" koala density-warton method/ bias not corrected")
 
-plot(pred.nct, zlim = c(0, 0.2392671), main=" koala density-warton method/ bias not corrected")
+plot(pred.nct, zlim = c(0.02, 1.2), main=" koala density-warton method/ bias not corrected")
 #### residulas model 1.
 resid.plot = diagnose(ppmFit1, which = "smooth", type = "Pearson", main="smoothed pesrson residulas bias NOT corrected model")
 ### with lurking varibale plots.
@@ -97,15 +103,14 @@ plot(kenv)
 
 #### model with distance covariates but not bias corrected
 ####
-#####
-
-ppmForm10 = ~  poly(temp,elev,hpop,lot_density, dis_visitor, distance_tertiaryandlink, degree = 2)
+##### ppmForm1 = ~  poly(AnnualMeanTemperature,fpcnew,lot_density, AnnualPrecipitation, degree = 2) 
+ppmForm10 = ~  poly(AnnualMeanTemperature,fpcnew,lot_density, AnnualPrecipitation, dis_visitor, distance_tertiaryandlink, degree = 2)
 # To find the resolution (in the range from 0.5 to 16 km):
 
 ppmFit10 = ppmlasso(ppmForm10, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1, n.fits = 100, standardise = TRUE)
 
 
-pred.distance_vars = predict(ppmFit10, newdata=stt)
+pred.distance_vars = predict(ppmFit10, newdata=newstt)
 
 ####  create a raster map
 predictions.distance_var <- cbind(xydatan, pred.distance_vars)
@@ -193,3 +198,4 @@ stt[] <- lapply(stt, as.integer)
 #Plot(kolaxyT, addTo = "myenv.stack$hpop")
 #https://cran.rstudio.com/web/packages/quickPlot/vignettes/iii-plotting.html
 
+# check demo from spatsta
