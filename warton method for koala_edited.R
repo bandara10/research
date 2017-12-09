@@ -79,6 +79,13 @@ scales = c(0.5, 1, 2, 4, 8, 16)
 findres(scales, coord = c("X", "Y"), sp.xy = kolaxyT, env.grid = stt, formula = ppmForm1)
 ## fit the model
 ppmFit1 = ppmlasso(ppmForm1, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1, n.fits = 200)#criterion = "nlgc", alpha= 0.7
+print(ppmFit1)
+#######
+#Block corss validation as a method for choosing LASSO penalty 
+#The area-interaction model with radius 2km and LASSO penalty chosen
+#by 5-fold block cross-validation in the main text was fitted as follows
+#criterion = "blockCV", n.blocks = 5, block.size = 32)
+#ppmFit1 = ppmlasso(ppmForm1, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1, n.fits = 200,criterion = "blockCV", n.blocks = 5, block.size = 32)
 ### predictions
 pred.biasCorrectnot = predict.ppmlasso(ppmFit1, newdata=stt)
 
