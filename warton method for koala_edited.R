@@ -65,7 +65,7 @@ kolaxyT <- kolaxyT[c(2,3)]
 kolaxyT <- kolaxyT/1000
 #coordinates(kolaxyT) <- ~X+Y
 #plot(kolaxyT, add=TRUE)
-kolaxy2 <- subset(kolaxyT, X > 442 & X < 540)
+kolaxy2 <- subset(kolaxyT, X > 4420 & X < 540)
 kolaxyT <- subset(kolaxy2, Y > 6902 & Y < 7000) # xy within the area only.
 
 ######### Step 1.
@@ -80,7 +80,7 @@ findres(scales, coord = c("X", "Y"), sp.xy = kolaxyT, env.grid = stt, formula = 
 ## fit the model
 ppmFit1 = ppmlasso(ppmForm1, sp.xy = kolaxyT, env.grid = stt, sp.scale = 1, n.fits = 200)#criterion = "nlgc", alpha= 0.7
 ### predictions
-pred.biasCorrectnot = predict(ppmFit1, newdata=stt)
+pred.biasCorrectnot = predict.ppmlasso(ppmFit1, newdata=stt)
 
 predictions <- cbind(xydatan, pred.biasCorrectnot)
 
@@ -93,6 +93,9 @@ plot(pred.nct, zlim = c(0.02, 1.2), main=" koala density-warton method/ bias not
 #### residulas model 1.
 resid.plot = diagnose(ppmFit1, which = "smooth", type = "Pearson", main="smoothed pesrson residulas bias NOT corrected model")
 ### with lurking varibale plots.
+diagnose.ppmlasso(ppmFit1, which = "x", type = "Pearson", compute.sd = TRUE)
+diagnose.ppmlasso(ppmFit1, which = "y", type = "Pearson", compute.sd = TRUE)
+# all four plots together
 diagnose.ppmlasso(ppmFit1)
 
 # assessing GOF using 95% simulation envelop
