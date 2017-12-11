@@ -208,7 +208,7 @@ W.so[,,3] = so.detection[,3:4]# if it changes
 # 2. Analising the data ========================================================
 
 #Analyzing Presence-Only data
-#pb.fit=pb.ipp(X.pb, W.pb,X.back, W.back)  
+pb.fit=pb.ipp(X.pb, W.pb,X.back, W.back)  
 # W.pb is pb.detection
 # X.pb and X.back same covariates. 
 # W.back is distance covariate for detection. 
@@ -219,3 +219,51 @@ so.fit=so.model(X.so,W.so,y.so)
 poANDso.fit=pbso.integrated(X.pb, W.pb,X.back, W.back,X.so,W.so,y.so)
 
 
+# pb.fit
+#$coefs
+# Parameter name      Value Standard error
+# 1                                                    beta0 -5.2043587     0.13225605
+# 2                                 Dem75mInteger_100_no.grd -1.0188289     0.09002529
+# 3                                   MinTemp_Jul_100_no.grd -0.7245087     0.05534356
+# 4                                   MaxTemp_Jan_100_no.grd -0.4412986     0.08397245
+# 5                   wetness_index_saga_sept2012_100_no.grd -0.2431656     0.02429644
+# 6                               Evaporation_Jul_100_no.grd  0.6241968     0.15377184
+# 7                               Evaporation_Jan_100_no.grd  0.2788767     0.08262562
+# 8                                  RainDays_Jul_100_no.gri  0.6352531     0.07357142
+# 9                                  Rainfall_Jan_100_no.grd  1.6488527     0.03502068
+# 10                         visible_sky_sept2012_100_no.grd -0.1527510     0.01963205
+# 11                                                  alpha0  2.2552370     0.37952045
+# 12 log_vertical_distance_major_streams_sept2012_100_no.grd  0.3345543     0.11314596
+# 13            terrain_ruggedness_index_sept2012_100_no.grd -1.0139156     0.08707117
+# 
+# $convergence
+# [1] 0
+# 
+# $value
+# [1] 13028.05
+
+
+
+# > so.fit
+# $coefs
+# Parameter name        Value Standard error
+# 1                                                beta0 -35.32066783     13.8974792
+# 2                                 Dem75mInteger_100_no  -3.85970335      2.1075431
+# 3                                   MinTemp_Jul_100_no   7.03926349      3.1381702
+# 4                                   MaxTemp_Jan_100_no   2.97951068      2.8663198
+# 5  log_vertical_distance_major_streams_sept2012_100_no   1.49008050      0.7158995
+# 6                   wetness_index_saga_sept2012_100_no   0.11506930      0.2674998
+# 7                           Evaporation_Jul_100_no.grd -10.10350950      4.9318864
+# 8                           Evaporation_Jan_100_no.grd -23.97880500     10.0095411
+# 9                              RainDays_Jul_100_no.gri -11.04918569      2.9825634
+# 10                             Rainfall_Jul_100_no.grd   1.83391730      0.8050790
+# 11                             RainDays_Jan_100_no.gri  -2.87105727      2.6243461
+# 12                             Rainfall_Jan_100_no.grd   2.61632927      1.4959734
+# 13                         visible_sky_sept2012_100_no  -0.25346487      0.1857578
+# 14                                           alpha0.so   0.02252261      0.3022473
+# 
+# $convergence
+# [1] 0
+# 
+# $value
+# [1] 114.0533
