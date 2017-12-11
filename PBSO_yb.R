@@ -23,7 +23,7 @@ library(fields)
 library(mvtnorm)
 library(matrixStats)
 
-source("functions.r")
+source("functions2.r")
 
 
 
@@ -90,6 +90,7 @@ pb.detection=pb.detection[is.complete.pb,] #3663#  distance covariates extract f
 pb.occupancy=pb.occupancy[is.complete.pb,]#3663# env covariates extract from occupancy raster
 # upto here basically covariate extraction is done for presence data for occupancy/abunace and detection., .
 #######################################
+#######################################
 so.occupancy=read.csv("so_occupancy.csv") # occupancy covariate valuves for survey data
 so.detection=read.csv("so_detection.csv") # detection covariate valuves wind sky day 1 and 2 for survey data.
 y.so=read.csv("yb-so.csv") # survey data or site occupancy, day 1 day 2 presence absence.
@@ -140,10 +141,10 @@ W.po=cbind(rep(1, nrow(as.matrix(pb.detection))), pb.detection) # v1, probabilit
 #y.so # matrix of presences and absences (when the species was and wasn't present)
 J.so=ncol(y.so)
 X.so=cbind(rep(1, nrow(as.matrix(so.occupancy))), so.occupancy)
-W.so = array(dim=c(nrow(as.matrix(so.detection)), J.so, 3))
+W.so = array(dim=c(nrow(as.matrix(pb.detection)), J.so, 3))
 W.so[,,1] = 1
-W.so[,,2] = so.detection# if it changes
-W.so[,,3] = so.detection2# if it changes
+W.so[,,2] = pb.detection# if it changes
+W.so[,,3] = pb.detection2# if it changes
 
 
 ######################didnt work up to tis level.
@@ -197,7 +198,7 @@ W.pb=cbind(rep(1, nrow(as.matrix(pb.detection))), pb.detection)
 J.so=ncol(y.so)
 X.so=cbind(rep(1, nrow(as.matrix(so.occupancy))), so.occupancy)
 
-W.so = array(dim=c(nrow(as.matrix(so.detection)), J.so, 2))
+W.so = array(dim=c(nrow(as.matrix(so.detection)), J.so, 3))
 W.so[,,1] = 1
 W.so[,,2] = so.detection[,1:2]# if it changes
 W.so[,,3] = so.detection[,3:4]# if it changes
