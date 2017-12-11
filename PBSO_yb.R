@@ -23,7 +23,7 @@ library(fields)
 library(mvtnorm)
 library(matrixStats)
 
-source("functions2.r")
+source("functions.r")
 
 
 
@@ -32,17 +32,15 @@ source("functions2.r")
 x.files=c( "Dem75mInteger_100_no.grd"
            ,"MinTemp_Jul_100_no.grd"
            ,"MaxTemp_Jan_100_no.grd"
-           ,"log_vertical_distance_major_streams_sept2012_100_no.grd"
            ,"wetness_index_saga_sept2012_100_no.grd"
            ,"Evaporation_Jul_100_no.grd"
            ,"Evaporation_Jan_100_no.grd"
            ,"RainDays_Jul_100_no.gri"
-          
            ,"Rainfall_Jan_100_no.grd"
            ,"visible_sky_sept2012_100_no.grd")
 #,"Rainfall_Jul_100_no.grd"
 #,"RainDays_Jan_100_no.gri"
-w.files=c("terrain_ruggedness_index_sept2012_100_no.grd")
+w.files=c("log_vertical_distance_major_streams_sept2012_100_no.grd", "terrain_ruggedness_index_sept2012_100_no.grd")
 #"distance_to_roads_100_no",
 for (i in c(x.files, w.files)) {
   do.call("=", list(i, raster(i)))
@@ -87,7 +85,7 @@ pb.detection=extract(s.detection,pb.loc)
 # only data from study area.
 is.complete.pb=complete.cases(pb.detection)&complete.cases(pb.occupancy)
 pb.detection=pb.detection[is.complete.pb,] #3663#  distance covariates extract from rasters. only one here
-pb.occupancy=pb.occupancy[is.complete.pb,]#3663# env covariates extract from occupancy raster
+pb.occupancy=pb.occupancy[is.complete.pb,]#3663# env covariates extract from  raster
 # upto here basically covariate extraction is done for presence data for occupancy/abunace and detection., .
 #######################################
 #######################################
@@ -140,7 +138,12 @@ W.po=cbind(rep(1, nrow(as.matrix(pb.detection))), pb.detection) # v1, probabilit
 #add a column of ones to the PA covariat
 #y.so # matrix of presences and absences (when the species was and wasn't present)
 J.so=ncol(y.so)
+so.occupancy <- as.matrix(so.occupancy) # added by me
 X.so=cbind(rep(1, nrow(as.matrix(so.occupancy))), so.occupancy)
+#X.so$v1 <- X.so$`rep(1, nrow(as.matrix(so.occupancy)))
+# X.so <- X.so[c(-1)]
+# X.so <- X.so[c(13, 1:12)]
+#X.so <- as.matrix(X.so)
 W.so = array(dim=c(nrow(as.matrix(pb.detection)), J.so, 3))
 W.so[,,1] = 1
 W.so[,,2] = pb.detection# if it changes
@@ -191,14 +194,14 @@ W.pb=cbind(rep(1, nrow(as.matrix(pb.detection))), pb.detection)
 
 
 
-#Preparing Presence-Absence data ------------------------------------------------
+#Preparing Presence-Absence data# seems to be a repat ------------------------------------------------
 
 #add a column of ones to the PA covariat
 #y.so # matrix of presences and absences (when the species was and wasn't present)
 J.so=ncol(y.so)
 X.so=cbind(rep(1, nrow(as.matrix(so.occupancy))), so.occupancy)
 
-W.so = array(dim=c(nrow(as.matrix(so.detection)), J.so, 3))
+W.so = array(dim=c(nrow(as.matrix(so.detection)), J.so, 1))
 W.so[,,1] = 1
 W.so[,,2] = so.detection[,1:2]# if it changes
 W.so[,,3] = so.detection[,3:4]# if it changes
@@ -210,7 +213,7 @@ W.so[,,3] = so.detection[,3:4]# if it changes
 # X.pb and X.back same covariates. 
 # W.back is distance covariate for detection. 
 # Analyzing presence-absence data
-so.fit=so.model(X.so,W.so,y.so) # X.so first row is #rep(1, nrow(as.matrix(so.occupancy))
+so.fit=so.model(X.so,W.so,y.so) 
 
 # Analyzing presence-only data AND presence-absence data
 poANDso.fit=pbso.integrated(X.pb, W.pb,X.back, W.back,X.so,W.so,y.so)
