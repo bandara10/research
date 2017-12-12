@@ -3,8 +3,11 @@ source("functions2.r")
 x.files=c( "AnnualMeanTemperature.tif"
            ,"clay.tif"
            ,"elev.tif"
-           ,"fpcnew.tif"
            ,"AnnualPrecipitation.tif"
+           ,"habit0pc.tif"
+           ,"habit1pc.tif"
+           ,"habit2pc.tif"
+           ,"habit3pc.tif"
           )
 
 #w.files=c("dis_city.tif", "distance_tertiaryandlink.tif")
@@ -29,18 +32,19 @@ for (i in w.files) {
   s.detection = addLayer(s.detection, temp)
 }
 #plot(s.detection) #0-10
-#plotting occupancy and detection covariates distributions in the study area
-print('plotting occupancy and detection rasters')
-ppi = 300
-png('occupancy-covariates.png', width=9*ppi, height=round(length(x.files)/2+2)*ppi, res=ppi)
-plot(s.occupancy)
-dev.off()
-
-png('pb-detection-covariates.png', width=9*ppi, height=round(length(w.files)/2+2)*ppi, res=ppi)
-plot(s.detection)
-dev.off()
+# #plotting occupancy and detection covariates distributions in the study area
+# print('plotting occupancy and detection rasters')
+# ppi = 300
+# png('occupancy-covariates.png', width=9*ppi, height=round(length(x.files)/2+2)*ppi, res=ppi)
+# plot(s.occupancy)
+# dev.off()
+# 
+# png('pb-detection-covariates.png', width=9*ppi, height=round(length(w.files)/2+2)*ppi, res=ppi)
+# plot(s.detection)
+# dev.off()
 
 pb=read.csv("kolaxy.csv")
+pb=read.csv("kolaxyT2010.csv")
 
 # kolaxy2 <- subset(kolaxyT, X > 442000 & X < 540000)
 # pb <- subset(kolaxy2, Y > 6902000 & Y < 7000000) # xy within the area only.
@@ -78,39 +82,39 @@ s.area=area.back*nrow(X.back) #study area
 X.po=cbind(rep(1, nrow(as.matrix(pb.occupancy))), pb.occupancy) # v1 and covariate valuves
 W.po=cbind(rep(1, nrow(as.matrix(pb.detection))), pb.detection) # v1, probability of detection.
 
-#add a column of ones to the PA covariat
-#y.so # matrix of presences and absences (when the species was and wasn't present)
-J.so=ncol(y.so)
-so.occupancy <- as.matrix(so.occupancy) # added by me
-X.so=cbind(rep(1, nrow(as.matrix(so.occupancy))), so.occupancy)
-#X.so$v1 <- X.so$`rep(1, nrow(as.matrix(so.occupancy)))
-# X.so <- X.so[c(-1)]
-# X.so <- X.so[c(13, 1:12)]
-#X.so <- as.matrix(X.so)
-W.so = array(dim=c(nrow(as.matrix(pb.detection)), J.so, 1))
-W.so[,,1] = 1
-W.so[,,2] = pb.detection# if it changes
-W.so[,,3] = pb.detection2# if it changes
+# #add a column of ones to the PA covariat
+# #y.so # matrix of presences and absences (when the species was and wasn't present)
+# J.so=ncol(y.so)
+# so.occupancy <- as.matrix(so.occupancy) # added by me
+# X.so=cbind(rep(1, nrow(as.matrix(so.occupancy))), so.occupancy)
+# #X.so$v1 <- X.so$`rep(1, nrow(as.matrix(so.occupancy)))
+# # X.so <- X.so[c(-1)]
+# # X.so <- X.so[c(13, 1:12)]
+# #X.so <- as.matrix(X.so)
+# W.so = array(dim=c(nrow(as.matrix(pb.detection)), J.so, 1))
+# W.so[,,1] = 1
+# W.so[,,2] = pb.detection# if it changes
+# W.so[,,3] = pb.detection2# if it changes
 
 
 
-#Checking whether occupancy and detection rasters have the same resolution -----
-if(sum(res(s.occupancy)!=res(s.detection)))
-  stop("Occupancy and detection raster layers have different resolution")
+# #Checking whether occupancy and detection rasters have the same resolution -----
+# if(sum(res(s.occupancy)!=res(s.detection)))
+#   stop("Occupancy and detection raster layers have different resolution")
+# 
+# if(ncell(s.occupancy)!=ncell(s.detection))
+#   stop("Occupancy and detection have different number of cells")
 
-if(ncell(s.occupancy)!=ncell(s.detection))
-  stop("Occupancy and detection have different number of cells")
 
-
-# Plotting covariates that drive occupancy and detection in PO
-ppi = 300
-png('occupancy-covariates.png', width=9*ppi, height=3*ppi, res=ppi)
-plot(s.occupancy)
-dev.off()
-
-png('PO-detection -covariates.png', width=9*ppi, height=3*ppi, res=ppi)
-plot(s.detection)
-dev.off()
+# # Plotting covariates that drive occupancy and detection in PO
+# ppi = 300
+# png('occupancy-covariates.png', width=9*ppi, height=3*ppi, res=ppi)
+# plot(s.occupancy)
+# dev.off()
+# 
+# png('PO-detection -covariates.png', width=9*ppi, height=3*ppi, res=ppi)
+# plot(s.detection)
+# dev.off()
 # adding column of ones - po locations # Is this pb.detection?????
 X.pb=cbind(rep(1, nrow(as.matrix(pb.occupancy))), pb.occupancy) # pb.occupancy is all presence locations. 
 W.pb=cbind(rep(1, nrow(as.matrix(pb.detection))), pb.detection)
