@@ -9,10 +9,12 @@ x.files=c( "AnnualMeanTemperature.tif"
            ,"habit2pc.tif"
            ,"habit3pc.tif"
           )
-
+d <- stack(x.files)
+s.occupancy <- scale(d)
 #w.files=c("dis_city.tif", "distance_tertiaryandlink.tif")
 w.files=c("hpop.tif")
-
+dd <- stack(w.files)
+s.detection <- scale(dd)
 #"distance_to_roads_100_no",
 for (i in c(x.files, w.files)) {
   do.call("=", list(i, raster(i)))
