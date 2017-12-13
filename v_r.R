@@ -131,7 +131,26 @@ pb.fit=pb.ipp(X.pb, W.pb,X.back, W.back)
 # perhaps stemming from under identification or boundary conditions
 # One thing you might try is to refit the model from its solution, to see 
 # if the gradients get smaller, and the NaN's clear up.
-
+# > pb.fit
+# $coefs
+# Parameter name      Value Standard error
+# 1                  beta0 -1.5638565     0.09059681
+# 2  AnnualMeanTemperature  0.6435503     0.10860685
+# 3                   clay -0.2962051     0.03419228
+# 4                   elev -0.7591525     0.13208796
+# 5    AnnualPrecipitation  0.2812441     0.03578126
+# 6               habit0pc  0.5452874     0.08930267
+# 7               habit1pc  0.1738743     0.05340960
+# 8               habit2pc  0.0836982     0.04992441
+# 9               habit3pc  0.3389569     0.06579120
+# 10                alpha0 -0.6545083     0.10543000
+# 11                  hpop  1.5306442     0.11403575
+# 
+# $convergence
+# [1] 0
+# 
+# $value
+# [1] 2783.46
 
 ################
 #Belwo code not run.
