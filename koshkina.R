@@ -1,9 +1,5 @@
 ###################################################################################################
-## original code by Robert Dorazio
-## modified by Vira Koshkina
-## Integrated Species Distribution Models: Combining presence-only data and presence-absence data with imperfect detection
-## utility functions for the file POPA-functions
-## 19/08/2016
+
 ###################################################################################################
 (abc <- load("mee.RDA")) # why this dataset cannot be seen.
 
