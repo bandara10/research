@@ -1,9 +1,5 @@
 ###################################################################################################
-## original code by Robert Dorazio
-## modified by Vira Koshkina
-## Integrated Species Distribution Models: Combining presence-only data and presence-absence data with imperfect detection## Single indepandant covariate for each p and lambda.
-## utility functions for the file POPA-functions
-## 19/08/2016
+
 ###################################################################################################
 require(raster)
 require(mvtnorm)
