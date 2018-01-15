@@ -111,6 +111,8 @@ ZTGLM.data$p.det=p.det
 
 ##Step 5 - Fit an inhomogeneous Poisson point process  that weights the log-likelihood by 1/p.det. 
 #non-integer #successes in a binomial glm! go ahead no problem or else use family=quasibinomial 
+#The differences are that quasibinomial 1) suppresses the integer check, and 2) doesn't report an AIC, 
+#since it's technically not maximum likelihood-based
 IPP.corrected=glm(y~x,family="binomial",weights=(1/p.det)*10000^(1-y),data=IPP.data)
 summary(IPP.corrected)
 
