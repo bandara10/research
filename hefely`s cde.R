@@ -109,7 +109,8 @@ IPP.data$p.det=c(p.det,rep(1,length(x.int)))
 ZTGLM.data$p.det=p.det
 
 
-##Step 5 - Fit an inhomogeneous Poisson point process  that weights the log-likelihood by 1/p.det
+##Step 5 - Fit an inhomogeneous Poisson point process  that weights the log-likelihood by 1/p.det. 
+#non-integer #successes in a binomial glm! go ahead no problem or else use family=quasibinomial 
 IPP.corrected=glm(y~x,family="binomial",weights=(1/p.det)*10000^(1-y),data=IPP.data)
 summary(IPP.corrected)
 
