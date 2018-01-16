@@ -283,9 +283,9 @@ myPredPerfs
 #now use this detection model to hefley and ccoorect IPP model.
 #first create a IPP model. acsel22 is poinit dataset of koala. add habitat rasters create a stack as in hefley method.
 
-myfullstack.a <- list.files(pattern="\\.tif$") # working directory rasterstack.
+myfullstack.a <- list.files(path="rasters_cropped_renner_methods",pattern="\\.tif$") #Mark_s folder.
 myfullstack = stack(myfullstack.a)
-IPP.pro <- acsel22[c(1,2,3)]
+PP.pro <- acsel22[c(1,2,3)]
 IPP.pre <- acsel22[c(1,2)]   # koala location data.
 IPP.pre2=as.data.frame(extract(myfullstack,IPP.pre))
 IPP.pre3=cbind(IPP.pre2, IPP.pro)
@@ -308,21 +308,51 @@ myPred3 = predict(myfullstack, ZTGLM.corrected, type = "response")
 
 
 ###### do a IWLR as Renner et al. 
-myfullstack.a <- list.files(pattern="\\.tif$") 
+#######
+#########
+mydatasighting <- read.csv("mydatasighting.csv", header = TRUE)
+
+
+# Subset the data:
+load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//mydatasighting_cleaned.RData")
+acsel200=mydatasighting_cleaned[c(127,128, 117)]
+acsel210 <- subset(acsel200, yearnew==2011, select = c("X","Y"))
+acsel21v <- acsel210
+#acsel21=SpatialPoints(acsel21v) # over 6629 beyond study area. 
+# get locations over rasters only.
+
+myfullstack.a <- list.files(path="rasters_cropped_renner_methods",pattern="\\.tif$") #Mark_s folder.
+myfullstack = stack(myfullstack.a)
+testlayer <- myfullstack[[1]]
+
+acsel220=cbind(acsel21v,(extract(testlayer,acsel210))) 
+# only data from study area. Remove NA rows and keep xy.
+acsel220 <- as.data.frame(na.omit(acsel220))
+acsel210 <- acsel220[c(1,2)]
+names(acsel210) <- tolower(names(acsel210))
+acsel210$Haskoala <- 1
+
+#############
+
+# names(acsel21) <- tolower(names(acsel21))
+# acsel21$Haskoala <- 1
+
+# myND <- subset(mydata, yearnew <= 1999, select = c("x","y"))
+#myfullstack.a <- list.files(pattern="\\.tif$") 
 # myfullstack = stack(myfullstack.a)
 # acsel211 <- acsel21[c(1,2)]
 # X.des=as.matrix(extract(myfullstack,acsel211))
 
 X.dess <- as.matrix(myfullstack)
-X.des <- X.dess[,c(1,51,52,23,30,33,34)]
+X.des <- X.dess[,c(1,49,48,22,29,32,33)]
 
-# code to get all presence absences. Put all presences and mark them as 1 and all others zero. Then get 0/1.
+# get all presence absences. Put all presences and mark them as 1 and all others zero. Then get 0/1.
 # This is the response data in iwlr and dwpr. Generally need presence locations only for other methods but
 #this is approximating ppm with logistic regression. So need 0/1.
 r <- raster(mystack, layer=2)
 dfull <- as.data.frame(r, xy = TRUE)
-dpart = cbind(acsel21,extract(r,acsel21[,1:2]))
-dpart <- subset(acsel21, Haskoala==1)
+dpart = cbind(acsel210,extract(r,acsel210[,1:2]))
+dpart <- subset(acsel210, Haskoala==1)
 rspec <- raster(r)
 rspec[] <- 0
 cells <- cellFromXY(rspec, as.matrix(dpart[, c("x", "y")]))
@@ -357,54 +387,30 @@ dd <- as.data.frame(X.des)
 pred.dwpr = predict(dwpr, newdata=dd)
 r <- raster(mystack, layer=2)
 dfull <- as.data.frame(r, xy = TRUE)
-xydatan <- dfull[c(1,2)]
+xydatan <- dfull[c(1,2)]# 
 # get coordinates only
 pred.dwpr <- cbind(xydatan, pred.dwpr)
 pred.dwpreg <- rasterFromXYZ(as.data.frame(pred.dwpr)[, c("x", "y", "pred.dwpr")])
 plot(pred.dwpreg,asp=1)
 
 
-
-
-
-
-####################### Generate quadrature points of different sizes. check R enviroment for genetted data.
-library(ppmlasso)
-load("Quad100m.RData")# this is from Renners example. add my quadratures.
-# quad1 <- quad[c(1,2)]
-# generte varying zise of quDRATURE POINTS BELOW SECTION
-n.quad = c(1000, 2000, 5000, 10000, 20000)
-quad.inc = sample(1:dim(quad)[1], 1000)
-assign(paste("quad.", n.quad[1], sep = ""), quad[quad.inc[1:n.quad[1]],])
-for (i in 2:length(n.quad)){
-  quad.inc = c(quad.inc, sample(setdiff(1:dim(quad)[1], quad.inc),
-                                (n.quad[i] - n.quad[i - 1])))
-  assign(paste("quad.", n.quad[i], sep = ""), quad[quad.inc[1:n.quad[i]],])
-}
-#################################
-
-# method in Renner et al 2015 Point process models for presence data. 
-
-mydata = read.csv("Eucalyptus sparsifolia.csv")
-XY <- mydata[c(3,4)]
-XY=XY/1000 
-save(XY, file = "Eucalyptus sparsifolia2.RData")
-load("Eucalyptus sparsifolia2.RData")
 ##############
+#5.3 Assessing the variability in likelihood for different numbers quadrature points.
 # this is the presence data set. extract?.
 #get the full raster data set.
 #projection(myfullstack) <- gsub("units=m", "units=km", projection(myfullstack))
-myfullstack.a <- list.files(pattern="\\.tif$") #working irectory raster stack.
-myfullstack <- stack(myfullstack.a)
+myfullstack.a <- list.files(path="rasters_cropped_renner_methods",pattern="\\.tif$") #Mark_s folder.
+myfullstack = stack(myfullstack.a)
 extent(myfullstack) <- extent(c(xmin(myfullstack), xmax(myfullstack), ymin(myfullstack), ymax(myfullstack))/1000)
 
-habitrasters<- subset(myfullstack, c(1,51,52,23,30,33,34)) # habitat covariates
+habitrasters<- subset(myfullstack, c(1,49,48,22,29,32,33)) # habitat covariates
 
 #now create all background data.
 bigquad <- as.data.frame(habitrasters, xy=TRUE) # if varying size quadrature points are needed chnage bigquad to quad.
-#colnames(bigquad)[1] <- 'X'; colnames(bigquad)[2] <- 'Y'
+bigquad <- na.omit(bigquad)   ### question
+colnames(bigquad)[1] <- 'X'; colnames(bigquad)[2] <- 'Y'
 #quad1 <- quad[c(1,2)]
-n.quad = c(50, 100, 200,500, 1000, 1500, 2000,4000, 7000, 9000) # number of quadrature poiints.
+n.quad = c(50, 100, 200,500, 1000, 1500, 2000,4000, 7000) # number of quadrature poiints.
 quad.inc = sample(1:dim(bigquad)[1], 1000)
 assign(paste("quad.", n.quad[1], sep = ""), bigquad[quad.inc[1:n.quad[1]],])
 for (i in 2:length(n.quad)){
@@ -416,9 +422,19 @@ for (i in 2:length(n.quad)){
 #compare the likelihood of PPMs fitted using downweighted Poisson regression:
 #create species data
 #IPP.pre is koala data
-IPP.pre2 <- IPP.pre/1000 # rasters should be in the same extent.
+IPP.pre2 <- IPP.pre/1000 # rasters should be in the same extent.same dataset used to Hefley method.
 spdata <- cbind(IPP.pre,(extract(habitrasters, IPP.pre2)))
+colnames(spdata)[1] <- 'X'; colnames(spdata)[2] <- 'Y'
 sp.dat <- as.data.frame(spdata)
+# recheck below code
+# load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//mydatasighting_cleaned.RData")
+# acsel20a = mydatasighting_cleaned[c(127,128, 117)]
+# acsel21a <- subset(acsel20a, yearnew==2011, select = c("X","Y"))
+# acsel21a <- acsel21a/1000
+# spdata <- cbind(acsel21a,(extract(habitrasters, acsel21a)))
+# spdata <- na.omit(spdata)  ####### question  
+# sp.dat <- spdata
+#acsel21=SpatialPoints(acsel21v) # over 6629 beyond study area. 
 sp.dat$Pres = 1
 loglik = rep(NA, length(n.quad))
 
@@ -443,7 +459,7 @@ plot(n.quad, loglik, log = "x", type = "o")
 
 library(ppmlasso)
                         #4.1 Finding the appropriate spatial resolution for analysis
-habitrasters<- subset(myfullstack, c(1,51,52,23,30,33,34))
+habitrasters<- subset(myfullstack, c(1,49,48,22,29,32,33)) # habitat covariates
 bigquad <- as.data.frame(habitrasters, xy=TRUE, na.rm=T)
 #stt <- na.omit(stt)
 colnames(bigquad)[1] <- 'X'; colnames(bigquad)[2] <- 'Y'
@@ -477,7 +493,35 @@ final.fit = ppmlasso(ppm.form, sp.xy = sp.xy, env.grid = quad.1k,sp.scale = 1,
 pred.final.fit = predict.ppmlasso(final.fit, newdata=bigquad)
 
 predictions.final.fit <- cbind(xydata, pred.final.fit) # xydatan was chnaged to xydata.
-pred.final<- rasterFromXYZ(as.data.frame(predictions)[, c("X", "Y", "pred.final.fit")])
+pred.final<- rasterFromXYZ(as.data.frame(predictions.final.fit)[, c("X", "Y", "pred.final.fit")])
 
 plot(pred.final, main=" koala density-warton method/ bias not corrected")
 ###### runs this code without error.
+
+
+
+
+
+####################### Generate quadrature points of different sizes. check R enviroment for genetted data.
+library(ppmlasso)
+load("Quad100m.RData")# this is from Renners example. add my quadratures.
+# quad1 <- quad[c(1,2)]
+# generte varying zise of quDRATURE POINTS BELOW SECTION
+n.quad = c(1000, 2000, 5000, 10000, 20000)
+quad.inc = sample(1:dim(quad)[1], 1000)
+assign(paste("quad.", n.quad[1], sep = ""), quad[quad.inc[1:n.quad[1]],])
+for (i in 2:length(n.quad)){
+  quad.inc = c(quad.inc, sample(setdiff(1:dim(quad)[1], quad.inc),
+                                (n.quad[i] - n.quad[i - 1])))
+  assign(paste("quad.", n.quad[i], sep = ""), quad[quad.inc[1:n.quad[i]],])
+}
+#################################
+
+# method in Renner et al 2015 Point process models for presence data. 
+
+mydata = read.csv("Eucalyptus sparsifolia.csv")
+XY <- mydata[c(3,4)]
+XY=XY/1000 
+save(XY, file = "Eucalyptus sparsifolia2.RData")
+load("Eucalyptus sparsifolia2.RData")
+
