@@ -105,15 +105,15 @@ summary(Detection.model)
 
 ##Step 4 - Estimate the probability of detection for each presence-only location.
 p.det=ilogit(predict(Detection.model,new=ZTGLM.data))
+# p.det <- as.data.frame(p.det)
+# p.d <- p.det[p.det<0.01]<-0.01
 IPP.data$p.det=c(p.det,rep(1,length(x.int)))
 ZTGLM.data$p.det=p.det
 
 
-##Step 5 - Fit an inhomogeneous Poisson point process  that weights the log-likelihood by 1/p.det. 
-#non-integer #successes in a binomial glm! go ahead no problem or else use family=quasibinomial 
-#The differences are that quasibinomial 1) suppresses the integer check, and 2) doesn't report an AIC, 
-#since it's technically not maximum likelihood-based
+##Step 5 - Fit an inhomogeneous Poisson point process  that weights the log-likelihood by 1/p.det
 IPP.corrected=glm(y~x,family="binomial",weights=(1/p.det)*10000^(1-y),data=IPP.data)
+#non-integer #successes in a binomial glm. ignore the warning or else use family=quasibinomial
 summary(IPP.corrected)
 
 
@@ -154,7 +154,7 @@ tpnbs=function()	{
 n.bootstraps=1000
 bootstrap.sample = mosaic::do(n.bootstraps) *tpnbs()
 str(bootstrap.sample)
-bootstrap.sample=data.matrix(bootstrap.sample)
+bootstrap.sample2=data.matrix(bootstrap.sample)
 ###############################################################################
 #	Calculating mean, standard deviation and 95%, equal-tailed confidence intervals
 #	from the empirical distribution. See "Introduction to the Bootstrap" (Efron & Tibshirani 1994) 
@@ -170,16 +170,16 @@ bootstrap.sample=data.matrix(bootstrap.sample)
 #	are obtained from steps 5 & 6 above.	
 ###############################################################################
 
-colMeans(bootstrap.sample)[1]
-sd(bootstrap.sample)[1]
-data(c(.025, .975),bootstrap.sample[,1])
+colMeans(bootstrap.sample2)[1]
+sd(bootstrap.sample2)[1]
+qdata(c(.025, .975),bootstrap.sample2[,1])
 
 colMeans(bootstrap.sample)[2]
 sd(bootstrap.sample)[2]
-data(c(.025, .975),bootstrap.sample[,2])
+qdata(c(.025, .975),bootstrap.sample[,2])
 
 colMeans(bootstrap.sample)[3]
 sd(bootstrap.sample)[3]
-data(c(.025, .975),bootstrap.sample[,3])
+qdata(c(.025, .975),bootstrap.sample[,3])
 
 
