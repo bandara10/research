@@ -15,31 +15,33 @@ library(rgl)
 library(usdm)
 library(ROCR)
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_syn")
-# raster fpc has na valuves. change this to 0.
-#set fpc na values to 0: this will chage sea areaalso to 0. 
-fpc <-  raster("DP_QLD_FPC20141.tif")
-plot(fpc)
-fpc[is.na(fpc[])] <- 0
-mask <- raster("PTO_100_200.tif")
-values(mask)[values(mask) > 0] = 0
-plot(mask)
-DP_QLD_FPC20141.corrected <- fpc+ mask
-plot(DP_QLD_FPC20141.corrected)
-writeRaster(DP_QLD_FPC20141.corrected, "DP_QLD_FPC20141.corrected.tif")
-#####  Step 1: read raster data from the folder and create a stack. ####
+unzip("raster_syn.zip")
+# # raster fpc has na valuves. change this to 0.
+# #set fpc na values to 0: this will chage sea areaalso to 0. 
+# fpc <-  raster("DP_QLD_FPC20141.tif")
+# plot(fpc)
+# fpc[is.na(fpc[])] <- 0
+# mask <- raster("PTO_100_200.tif")
+# values(mask)[values(mask) > 0] = 0
+# plot(mask)
+# DP_QLD_FPC20141.corrected <- fpc+ mask
+# plot(DP_QLD_FPC20141.corrected)
+# writeRaster(DP_QLD_FPC20141.corrected, "DP_QLD_FPC20141.corrected.tif")
+# #####  Step 1: read raster data from the folder and create a stack. ####
 myfullstack.c <- list.files(pattern="\\.tif$", full.names = TRUE) #select relevant folder to get detection model rasters.
 myfullstack <- stack(myfullstack.c)
-
+plot(myfullstack[[2]])
 #ignore above stack in data preparation stage.
 
-myfullstack.a <- list.files(pattern="\\.tif$", full.names = TRUE) 
-myfullstack <- stack(myfullstack.a)
+# myfullstack.a <- list.files(pattern="\\.tif$", full.names = TRUE) 
+# myfullstack <- stack(myfullstack.a)
 #plot(myfullstack)
 #### Step 2: import koala .csv data from the full study land region. Full square study are consists of land and sea. ####
 hefleydata <- read.csv("hefley_fishnet_rastermatch2010_2014.csv", header = TRUE) # centroids for full study area as some sros are required.
 names(hefleydata)
 # plot koala presence locations
 hefleydata.presence <-subset(hefleydata, presence==1)
+#hefleydata.presence=SpatialPoints(hefleydata.presence)
 coordinates(hefleydata.presence) <- ~x+y
 plot(hefleydata.presence, add=TRUE)
 
@@ -52,7 +54,7 @@ hefleydata.s = as.data.frame(hefleydata.s)
 myFD = cbind(hefleydata.s,raster::extract(myfullstack,hefleydata.s))
 # get presence and group vriables
 myFD1 = cbind(myFD,hefleydata [3:4]) # get presence and group data. 
-myFD1 = na.omit(myFD1) # remove all NA valuves
+myFD1 = na.omit(myFD1) # remove all NA valuves but ignore this step aand see.
 
 #### Step 4: select presence and abnsences data and combine with. #### 
 ZTGLM.myFD1=myFD1[which(myFD1$presence==1),] # select presence data. THis will be reorganised as 0 and 1 later.
@@ -90,11 +92,12 @@ ZTGLM.data=(detected)##ZTGLM.data# This is detected data randomly selected n= 50
 vifstep(myfullstack, th=10) # select variables which have Varience nflation Factor less than 10.
 
 ##### Step 8:  analysis without detection correction factor#######
-IPP.ignored=glm(presence~habit3 + lot_density + dem +hpop+hpop+lot_density+rainfallmeanannual,family="binomial",weights=10000^(1-presence),data=IPP.data) # IPP.data2 added.
+IPP.ignored=glm(presence~habit3 +dem +hpop+lot_density+AnnualPrecipitation+AnnualMeanTemperature,family="binomial",weights=1000^(1-presence),data=IPP.data) # IPP.data2 added.
 summary(IPP.ignored)
 
 bc <- boxcox(y ~ x)
 
+resid.plot.2 = diagnose(IPP.ignored, which = "smooth", type = "Pearson")
 
 
 ZTGLM.ignored=vglm(group~habit3 + lot_density + dem +hpop+hpop+lot_density+rainfallmeanannual,family="pospoisson", data=ZTGLM.data)
@@ -117,14 +120,14 @@ logistic
 #Hefley method GLM
 set.seed(1238) # we create detection probabilities using two methods. glm, rf
 #Detection model: steps as in Hefley`s code`
-Detection.model=glm(presence~  habit3 + lot_density + dem +hpop+lot_density+rainfallmeanannual, family= "binomial", data=Detection.data)
+Detection.model=glm(presence~  habit3 + lot_density + dem +hpop+lot_density, family= "binomial", data=Detection.data)
 
 
 s <- dropLayer (myfullstack, c(1:13, 15:40, 42, 45:60, 62:94))
 
 summary(Detection.model)
 # check the prediction map right here.
-myPred1 = predict(s, Detection.model, type = "response")
+myPred1 = predict(myfullstack, Detection.model, type = "response")
 plot(myPred1, xlab = "x", ylab= "y",main="detection model")
 plot(hefleydata.presence,pch=".", add=TRUE)
 ###### #######
@@ -135,13 +138,46 @@ plot(perf, colorize = T)
 
 ##### Stores the residuals  plot corellagram ####
 Detection.data$res = residuals(Detection.model) # library(ncf)
-myResCorr <- correlog(Detection.data$x, Detection.data$y, Detection.data$res,na.rm=T, increment=1000, resamp=0, latlon = F)
+source("autoregressive.R")
+myStack = stack(myfullstack)
+# Plot the predictors
+#plot(myStack)
+# Creates a mask layer
+myMask = raster("dem.TIF") >= 0
+plot(myMask)
+
+
+# Map predictions
+AR1 = myMask * 0
+AR1@file@name = "AR1"
+# Add it to the stack
+myARStack = addLayer(myStack, AR1)
+names(myARStack)[nlayers(myARStack)]="AR1"
+
+myResCorr <- correlog(Detection.data$x, Detection.data$y, Detection.data$res,na.rm=T, increment=8000, resamp=0, latlon = F)
 plot(myResCorr$mean.of.class[1:100], myResCorr$correlation[1:100] ,type="b", pch=16, lwd=1.5, cex = 1.2,
      xlab="distance", ylab="Moran's I")
 
+Detection.data$AR1 = myLib.AutoRegressiveMean(residuals(Detection.model), Detection.data$x, Detection.data$y, 150000)
+# Changes the formular string
+Detection.model2=glm(presence~  habit3 + lot_density + dem +hpop+lot_density+AR1, family= "binomial", data=Detection.data)
+
+
+
+# Estimate correlogram of new residuals
+
+myFD$R1 = residuals(myGLMR1)
+Corr <- correlog(myFD$x, myFD$y, myFD$R1,na.rm=T, increment=1000, resamp=0, latlon = F)              
+#Corr <- correlog(myFD$x, myFD$y, myFD$R1,na.rm=T, increment=10000, resamp=0, latlon = F)
+#mySigVec = ifelse(Corr$p<0.01,1,0)  
+
+lines(Corr$mean.of.class[1:20], Corr$correlation[1:20], col = "red")
+#points(Corr$mean.of.class[1:20], Corr$correlation[1:20], pch = 16, col = mySigVec[1:20]+1)
+# Plot the correlogram
+plot(Corr)              
+
 #rerun the modelwith residuals: looks awfull. inst it. use crase approach for auto corelation. have to refer his paper for this. 
-Detection.model.1=glm(presence~  distance_pedestrian + s1_residential_dist + distance_trunkandlink +
-                        distance_tertiaryandlink + res + scale(group),family= "binomial", data=Detection.data)
+Detection.model.1=glm(presence~ habit3 + lot_density + dem +hpop+lot_density+res,family= "binomial", data=Detection.data)
 
 summary(Detection.model.1) # not a good model.
 ##### #####

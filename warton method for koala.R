@@ -6,68 +6,78 @@ library(spatial.tools)
 # Pre-standardise observer bias variables
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_stack")
 myenv <- list.files( path="wartondata", pattern="\\.tif$", full.names = TRUE) 
-
 myenv.stack <- stack(myenv)
-plot(myenv.stack)
+### crop to extent to get square area
+# plot(myenv.stack[[1]])
+# newex <- drawExtent()
+# stack.c <- crop(myenv.stack, newex)
+# plot(stack.c)
+# myenv.stack2 <- stack.c
 
-#extent(myenv.stack) <- extent(c(xmin(myenv.stack), xmax(myenv.stack), ymin(myenv.stack), ymax(myenv.stack))/1000)
+d <- (myenv.stack[[1]])
+e <- (myenv.stack[[2]])
+f <- (myenv.stack[[3]])
 
-#lapply outputs a list of rasters
-# m is data matrix from getvalues stack.
-#r is an empry raster
-ll <- getValues(myenv.stack)
-lll <- as.data.frame(ll)
-lll <- lll[c(2,3)]
+e <- as.data.frame(d, xy=TRUE)
+ee <- e[c(1,2)]
+ee$X  <- ee$x/1000 
+ee$Y <- ee$y/1000
+eee <- ee [c(3,4)]
+#bind this with raster valuves
 
-#create an empty raster
-start_y <- 441829 #100
-start_x <- 6901098 #200
-griddf <- expand.grid(X = seq(from = start_y, by = 1, l = 100),
-                      Y = seq(from = start_x, by = 1, l = 100))
+# sss <- as.data.frame(myenv.stack, centroids= TRUE,  xy = TRUE)
+# a <- sss[c(1,2,4)]
+# ar <- rasterFromXYZ(as.data.frame(a)[, c("x", "y", "elev")])
 
-A <- rnorm(10000, 0, 0)
+dd <- as.data.frame(d)
+ee<- as.data.frame(e)
+ff<- as.data.frame(f)
+rasterXY <- cbind(eee$X, eee$Y, dd$distance_tertiaryandlink, ee$elev, ff$temp)
+rasterXYa <- as.data.frame(rasterXY)
+colnames(rasterXYa)[1] <- "X"
+colnames(rasterXYa)[2] <- "Y"
+colnames(rasterXYa)[3] <- "TEM"
+colnames(rasterXYa)[4] <- "ELEV"
+colnames(rasterXYa)[5] <- "TEM"
 
-envs<- cbind(griddf,A)
+#rasterXYaX <- rasterXYa$X/1000 
+#rasterXYa$Y <- rasterXYa$Y/1000
+arr <- rasterFromXYZ(as.data.frame(rasterXYa)[, c("X", "Y", "TEM")], res=.5)
+arrr <- rasterFromXYZ(as.data.frame(rasterXYa)[, c("X", "Y", "ELEV")], res=.5)
+st <- stack(arr, arrr)
 
-xy.rr <- rasterFromXYZ(as.data.frame(envs)[, c("X", "Y", "A")])
-#proj4string(xy.rr) <- CRS("+init=epsg:28356")
-#xy.rr[is.na(xy.rr[])] <- 0 # this raster is fine but includs the sea.
- 
-plot(xy.rr)
-####
-l <- lapply(1:ncol(lll), function(i) {
- setValues(xy.rr,lll[ , i])
-} )
+stt <- as.data.frame(st, xy=TRUE)
 
-# stack the list
-s <- stack(l)
-plot(s)
-ss <- as.data.frame(s, xy=TRUE)
-#ss[is.na(ss)] <- 0
-colnames(ss)[1] <- "X"
-colnames(ss)[2] <- "Y"
-sss <- na.omit(ss)
-xydatan <- sss[c(1,2)] # to create a raster
+colnames(stt)[1] <- "X"
+colnames(stt)[2] <- "Y"
 
 
-xydatan <- na.omit(xydatan)
+# quadrature points not working.
+quad.1 = sample.quad(env.grid =stt , sp.scale = 1, file = "Quad")
+
+
 #koala data
 kolaxy <- read.csv("wartondata\\kolaxy.csv", header = TRUE)
-kolaxy <- kolaxy[sample(nrow(kolaxy), 80), ]
+kolaxy <- subset(kolaxy, y> 6901098 & y < 7000000, select=x:y) # limit y selection
 
-#kolaxy <- kolaxy[,1:ncol(kolaxy)]/1000 # selects every row and 2nd to last columns
-#coordinates(kolaxy)= ~ X+Y
-#proj4string(kolaxy) <- CRS("+init=epsg:28356")
-#plot(kolaxy)
-## Pre-standardise observer bias variables
-#stand.A.1=scale.default(ss$A.1, center = TRUE, scale = TRUE) #standarise
-#stand.A.2=scale.default(ss$A.2, center = TRUE, scale = TRUE) #standarise
-#ss$A.1 = stand.A.1
-#ss$A.2 = stand.A.2
+# minimum distace between kola 1000m
+kolaxy$disttoitself = Lib_DistEstimatesToItself(kolaxy$x, kolaxy$y)
+kolaxy2 = subset(kolaxy, kolaxy$disttoitself > 400)
+kxy <- as.data.frame(kolaxy2[c(1,2)])
+kxy$X <- kxy$x/1000 ; kxy$Y <- kxy$y/1000
+kXY <- kxy [c(3,4)]
 
-#########+ +poly (A.1, degree = 2)
-ppmForm = ~  poly(A.1, A.2, degree = 2) 
-ppmFit = ppmlasso(ppmForm, sp.xy = kolaxy, env.grid = sss, sp.scale = 1)
+write.csv(kXY, "koalaxy.csv", row.names=FALSE)
+plot(kxy, add=TRUE)
+
+#read data from folder directly
+koalaxy <- read.csv("wartondata\\koalaxy.csv", header = TRUE)
+
+env <- read.csv("wartondata\\env.csv", header = TRUE)
+
+#########
+ppmForm = ~  poly(elev,temp, degree = 2) 
+ppmFit = ppmlasso(ppmForm, sp.xy = koalaxy, env.grid = env, sp.scale = s1)
 # To predict using model-based control of observer bias (at min value for D_MAIN_RDS):
 newEnv = sss
 #newEnv$A.1 = min(stand.A.1)
@@ -86,3 +96,4 @@ findres(scales, sp.xy = kolaxy,
 kenv = envelope(ppmFit, fun = Kinhom)
 resid.plot = diagnose(ppmFit, which = "smooth", type = "Pearson")
 
+#####

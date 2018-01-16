@@ -27,6 +27,12 @@ library(usdm)
 library(ROCR)
 library(maptools)
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_syn\\renamed_vars")
+# variables renamed and selected based on vif.
+#Datapreparation:raster; data not trasformed. Koala data for from 2010-2015.
+# spatialEco pachage can trasformdata to norm", "rstd", "std", "stretch", "nl", "slog", "sr".
+# use #vif for varibale selection.  step function to select the best model. Then fit models ipp ignored and corrected models.
+#If you want to formally test the hypothesis of Complete Spatial Randomness you can do this using the chi-squared 
+# chi-squared test based on quadrat counts (quadrat.test) from spatstat package.
 
 myfullstack.a <- list.files(pattern="\\.tif$", full.names = TRUE) 
 myfullstack <- stack(myfullstack.a)
@@ -76,7 +82,7 @@ ZTGLM.data=(detected)##ZTGLM.data# This is detected data randomly selected n= 50
 vifstep (myfullstack, th=10) # select variables which have Varience nflation Factor less than 10.
 
 ##### Step 8:  analysis without detection correction factor####### mode selected from below method:
-IPP.ignored = glm(presence ~ distance_secondaryandlink  ,family="binomial",weights=10000^(1-presence),data=IPP.data) # IPP.data2 added.
+IPP.ignored = glm(presence ~ distance_secondaryandlink,family="binomial",weights=10000^(1-presence),data=IPP.data) # IPP.data2 added.
 summary(IPP.ignored)
 ZTGLM.ignored=vglm(group ~ rain_mean_annual+habit3percent,family="pospoisson", data=ZTGLM.data)
 summary(ZTGLM.ignored)
@@ -84,7 +90,7 @@ summary(ZTGLM.ignored)
 
 ##### perform forward selection by specifying a starting model and the range of models which we want to examine in the search.#### 
 null=glm(presence~ 1, family= "binomial", data=Detection.data) # null model
-full=glm(presence ~ city_dis+dis_habit1+dis_habit3+Dis_habitat_suitable_1+
+full=glm(presence ~ city_dis+dis_habit1+dis_habit3+
            Dis_habitat_suitable_2+Dis_habitat_suitable_3+distance_motorwayandlink+distance_primaryandlink
          +distance_residentil+distance_secondaryandlink+
            distance_tertiaryandlink+visitorarea_dis+ scale(group),
@@ -104,11 +110,12 @@ logistic
 #Hefley method GLM
 set.seed(1238) # we create detection probabilities using two methods. glm, rf
 #Detection model: steps as in Hefley`s code`
-Detection.model=glm(presence ~ distance_secondaryandlink, family= "binomial", data=Detection.data)
+Detection.model=glm(presence ~ city_dis+dis_tertiaryandlink+s3_residential_dist+visitorarea_dis, family= "binomial", data=Detection.data)
 
 summary(Detection.model)
 # check the prediction map right here. #use only the selected variabels as
 myPred1 = predict(myfullstack, Detection.model, type = "response")
+
 plot(myPred1, xlab = "x", ylab= "y",main="detection model")
 plot(hefleydata.presence,pch=1, add=TRUE)
 ###### #######
@@ -143,7 +150,6 @@ IPP.corrected= glm(presence~twi + tpo + temp + aspect + dem+habit2pc+hpop+lot_de
                    family="binomial",weights=(1/p.det)*10000^(1-presence),data=IPP.data)
 
 summary(IPP.corrected)
-
 # broom package: used tidy to get a table from model outputs. This doesnt work for VGLMs.
 # get confidence intervals and compare ignored and corrected models.
 confidenceintervals <- confint(IPP.ignored)
