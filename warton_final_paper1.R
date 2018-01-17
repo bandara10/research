@@ -1,4 +1,24 @@
+library(maptools); library(sp); library(raster); library(rgdal); library(spatstat); library(ggplot2)
+library(spatialkernel); library(splancs); library(RColorBrewer); library(dismo); library(spatial.tools)
+library(lmtest)
+library(spatial.tools)
+library(VGAM)
+library(mosaic)
+library(faraway)
+library(gstat)  #
+library(ncf)    #
+library(foreign)
+library(nlme)   
+library(MASS)
+library(ROCR)
+library(vcd)
+library(RColorBrewer) # 
+library(classInt)
+library(ppmlasso)
+
+
 ##############
+setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S")
 
 load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//mydatasighting_cleaned.RData")
 mydata <- mydatasighting_cleaned
@@ -22,10 +42,19 @@ selected.locations <- subset(selected.locations2, y > 6903098 & y < 6999098) # x
 coordinates(selected.locations) <- ~x+y
 
 
-
-#check which distance variables are associated with sightings
+#####NOTE: Scaling all rasters gives slightly different predictions.
 myfullstack.a <- list.files(path="rasters_cropped_renner_methods",pattern="\\.tif$") #Mark_s folder
-myfullstack = stack(myfullstack.a) 
+myfullstack = scale(stack(myfullstack.a)) 
+#plot rasters 
+plot(myfullstack[1:10])
+plot(myfullstack, c(1:10))
+plot(myfullstack, c(11:20))
+plot(myfullstack, c(21:30))
+plot(myfullstack, c(31:40))
+plot(myfullstack, c(41:49))
+
+##check which distance variables are associated with sightings
+
 Distance_primary <- myfullstack[[12]] 
 plot(Distance_primary, main="primary roads"); plot(selected.locations, add=TRUE)
 plot(Distance_motorway <- myfullstack[[15]],main="Distance to motorway"); plot(selected.locations, add=TRUE)
@@ -34,7 +63,7 @@ plot(Distance_motorway <- myfullstack[[15]],main="Distance to motorway"); plot(s
 #get the full raster data set.
 #projection(myfullstack) <- gsub("units=m", "units=km", projection(myfullstack))
 myfullstack.a <- list.files(path="rasters_cropped_renner_methods",pattern="\\.tif$") #Mark_s folder
-myfullstack = stack(myfullstack.a) 
+myfullstack = scale(stack(myfullstack.a)) 
 extent(myfullstack) <- extent(c(xmin(myfullstack), xmax(myfullstack), ymin(myfullstack), ymax(myfullstack))/1000)
 #quadrature points
 habitat.r<- subset(myfullstack, c(2,3,12,15,22,23,34,45,46,47,48,49)) # habitat covariates
@@ -99,7 +128,7 @@ resid.plot = diagnose(ppmFit, which = "smooth", type = "Pearson", main="smoothed
 ### with lurking varibale plots.
 diagnose.ppmlasso(ppmFit)
 #K-envelop
-kenv = envelope(ppmFit, fun = Kinhom) # simulated envelop for summary function
+kenv = envelope(ppmFit, fun = Kinhom, nsim=39) # simulated envelop for summary function 
 plot(kenv,main= "Inhomogeneous K-function with 95% simulation envelope")
 
 #A regularisation path of Poisson point process models
@@ -220,7 +249,7 @@ pred.dwpr <- cbind(xydatan, pred.dwpr)
 pred.dwpreg <- rasterFromXYZ(as.data.frame(pred.dwpr)[, c("x", "y", "pred.dwpr")])
 plot(pred.dwpreg,asp=1)
 
-
+m
 
 
 
