@@ -135,3 +135,96 @@ pred.ct.inter <- rasterFromXYZ(as.data.frame(pred.inter.action)[, c("X", "Y", "p
 plot(pred.ct.inter )
 diagnose.ppmlasso(final.fita)
 
+######### PPM model can be approximated with IWLR / DWPR
+###### do a IWLR| DWPR as Renner et al. ##########
+load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//mydatasighting_cleaned.RData")
+mydata <- mydatasighting_cleaned
+mydata <- mydata[c("X","Y","yearnew")]
+names(mydata) <- tolower(names(mydata))
+
+# Analyse data for 2011:
+all.locations= subset(mydata,yearnew >2000:2015, select=x:y)
+plot(all.locations)
+# set a minimum distance betweek koalas
+source("Lib_DistEstimatesToItself.r")
+all.locations$disttoitself = Lib_DistEstimatesToItself(all.locations$x, all.locations$y)
+select.locations = subset(all.locations, all.locations$disttoitself > 400)
+selected.locations = select.locations[,1:2]
+
+# keep a buffer distance of 2000m as required by this method.
+# get  raster dimentions:441829, 541829, 6901098, 7001098  (xmin, xmax, ymin, ymax)
+
+selected.locations2<- subset(selected.locations, x > 443829 & x < 539829)
+selected.locations <- subset(selected.locations2, y > 6903098 & y < 6999098) # xy only within the study area.
+coordinates(selected.locations) <- ~x+y
+
+selected.locations=as.data.frame(selected.locations)/1000
+selected.locations$Haskoala <- 1
+
+# step 1: preapre data: 
+myfullstack.a <- list.files(path="rasters_cropped_renner_methods",pattern="\\.tif$") #Mark_s folder
+myfullstack = stack(myfullstack.a) 
+# myfullstack = stack(myfullstack.a)
+# acsel211 <- acsel21[c(1,2)]
+# X.des=as.matrix(extract(myfullstack,acsel211))
+
+habitat.r<- subset(myfullstack, c(2,3,12,15,22,23,34,45,46,47,48,49)) # habitat covariates
+X.des <- as.matrix(habitat.r)/1000
+
+
+# code to get all presence absences. Put all presences and mark them as 1 and all others zero. Then get 0/1.
+# This is the response data in iwlr and dwpr. Generally need presence locations only for other methods but
+#this is approximating ppm with logistic regression. So need 0/1.
+extent(habitat.r) <- extent(c(xmin(habitat.r), xmax(habitat.r), ymin(habitat.r), ymax(habitat.r))/1000)
+r <- raster(habitat.r, layer=2)
+dfull <- as.data.frame(r, xy = TRUE)
+dpart = cbind(selected.locations,extract(r,selected.locations[,1:2]))
+dpart <- subset(selected.locations, Haskoala==1)
+rspec <- raster(r)
+rspec[] <- 0
+cells <- cellFromXY(rspec, as.matrix(dpart[, c("x", "y")]))
+rspec[cells] <- dpart$Haskoala
+plot(rspec)
+text(dpart$x, dpart$y, lab = dpart$Haskoala)
+Press<- as.data.frame(rspec, xy=TRUE)
+Pres <- Press[,3]   # this create a vector, Press[c(3)] create a sublist.
+
+####iwlr
+up.wt = (10^6)^(1 - Pres)
+iwlr = glm(Pres ~ X.des, family = binomial(), weights = up.wt)
+
+dd1 <- as.data.frame(X.des) # get coordinates of the design matrix for predictions. similr to warton method.
+pred.iwlr = predict(iwlr, newdata=dd1)
+r <- raster(habitat.r, layer=2)
+dfull <- as.data.frame(r, xy = TRUE)
+xydatan <- dfull[c(1,2)]
+# get coordinates only
+pred.iwlr <- cbind(xydatan, pred.iwlr)
+pred.iwlreg <- rasterFromXYZ(as.data.frame(pred.iwlr)[, c("x", "y", "pred.iwlr")])
+plot(pred.iwlreg,asp=1)
+
+
+
+###DWPR
+p.wt = rep(1.e-6, length(Pres))
+p.wt[Pres == 0] = 10000/sum(Pres == 0)
+dwpr = glm(Pres/p.wt ~ X.des, family = poisson(), weights = p.wt)
+
+dd <- as.data.frame(X.des)
+pred.dwpr = predict(dwpr, newdata=dd)
+r <- raster(habitat.r, layer=2)
+dfull <- as.data.frame(r, xy = TRUE)
+xydatan <- dfull[c(1,2)]
+# get coordinates only
+pred.dwpr <- cbind(xydatan, pred.dwpr)
+pred.dwpreg <- rasterFromXYZ(as.data.frame(pred.dwpr)[, c("x", "y", "pred.dwpr")])
+plot(pred.dwpreg,asp=1)
+
+
+
+
+
+
+
+
+
