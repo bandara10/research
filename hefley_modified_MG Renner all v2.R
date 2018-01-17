@@ -384,6 +384,36 @@ plot(pred.dwpreg,asp=1)
 
 
 ##############
+
+load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//mydatasighting_cleaned.RData")
+mydata <- mydatasighting_cleaned
+# Subset the data:
+mydata <- mydata[c("X","Y","yearnew")]
+names(mydata) <- tolower(names(mydata))
+# myND <- subset(mydata, yearnew <= 1999, select = c("x","y"))
+
+# mydata$homephone <- ifelse(is.na(mydata$homephone), mydata$workphone, mydata$homephone)
+
+# Analyse data for 2011:
+all.locations= subset(mydata,yearnew >2000:2015, select=x:y)
+coordinates(all.locations)~x+y
+plot(all.locations)
+# set a minimum distance betweek koalas
+source("Lib_DistEstimatesToItself.r")
+# start distance based selection method
+# mydata.n <- mydata.mga[c(3,4)]
+# mydata.n = as.data.frame(mydata.n)
+# myInPtDF = SpatialPointsDataFrame(mydata.n[c("x","y")], mydata.n)
+# windows();plot(myInPtDF, axes = T)
+all.locations$disttoitself = Lib_DistEstimatesToItself(all.locations$x, all.locations$y)
+select.locations = subset(all.locations, all.locations$disttoitself > 400)
+select.locations = select.locations[,1:2]
+plot(selected.locations)
+
+#check which distance variables are associated with sightings
+plot(Distance_primary <- myfullstack[[12]], main="Distance to primary roads");plot(selected.locations, add=TRUE)
+
+plot(Distance_motorway <- myfullstack[[15]],main="Distance to motorway");plot(selected.locations, add=TRUE)
 # this is the presence data set. extract?.
 #get the full raster data set.
 #projection(myfullstack) <- gsub("units=m", "units=km", projection(myfullstack))
@@ -391,10 +421,10 @@ myfullstack.a <- list.files(path="rasters_cropped_renner_methods",pattern="\\.ti
 myfullstack = stack(myfullstack.a) 
 extent(myfullstack) <- extent(c(xmin(myfullstack), xmax(myfullstack), ymin(myfullstack), ymax(myfullstack))/1000)
 
-habitrasters<- subset(myfullstack, c(1,49,48,22,29,32,33)) # habitat covariates
+habitat.r<- subset(myfullstack, c(2,3,12,15,22,23,34,45,46,47,48,49)) # habitat covariates
 
 #now create all background data.
-bigquad <- as.data.frame(habitrasters, xy=TRUE) # if varying size quadrature points are needed chnage bigquad to quad.
+bigquad <- as.data.frame(habitat.r, xy=TRUE) # if varying size quadrature points are needed chnage bigquad to quad.
 #colnames(bigquad)[1] <- 'X'; colnames(bigquad)[2] <- 'Y'
 #quad1 <- quad[c(1,2)]
 n.quad = c(50, 100, 200,500, 1000, 1500, 2000,4000, 7000, 9000) # number of quadrature poiints.
@@ -409,8 +439,8 @@ for (i in 2:length(n.quad)){
 #compare the likelihood of PPMs fitted using downweighted Poisson regression:
 #create species data
 #IPP.pre is koala data
-IPP.pre2 <- IPP.pre/1000 # rasters should be in the same extent.
-spdata <- cbind(IPP.pre,(extract(habitrasters, IPP.pre2)))
+IPP.pre2 <- as.data.frame(selected.locations)/1000 # rasters should be in the same extent.: 
+spdata <- cbind(IPP.pre2,(extract(habitat.r, IPP.pre2)))
 sp.dat <- as.data.frame(spdata)
 sp.dat$Pres = 1
 loglik = rep(NA, length(n.quad))
@@ -436,16 +466,19 @@ plot(n.quad, loglik, log = "x", type = "o")
 
 library(ppmlasso)
 #4.1 Finding the appropriate spatial resolution for analysis
-habitrasters<- subset(myfullstack, c(1,49,48,22,29,32,19))
+habitat.r<- subset(myfullstack, c(2,3,12,15,22,23,34,45,46,47,48,49))
 
-bigquad <- as.data.frame(habitrasters, xy=TRUE, na.rm=T)
-stand.distance_tertiaryandlink=scale.default(bigquad$distance_tertiaryandlink, center = TRUE, scale = TRUE)
-bigquad$distance_tertiaryandlink = stand.distance_tertiaryandlink
+bigquad <- as.data.frame(habitat.r, xy=TRUE, na.rm=T)
+
+# stand.distance_trunkandlink=scale.default(bigquad$distance_trunkandlink)
+# 
+# bigquad$distance_trunkandlink = stand.distance_trunkandlink
 
 # to predict using model based control of obser bias at minimum distance.
 bigquad.2 <- bigquad
-bigquad.2$distance_tertiaryandlink= min(stand.distance_tertiaryandlink) 
+bigquad.2$distance_primaryandlink = min(bigquad.2$distance_primaryandlink) 
 
+bigquad.2$distance_motorwayandlink = min(bigquad.2$distance_motorwayandlink)
 #stt <- na.omit(stt)
 colnames(bigquad)[1] <- 'X'; colnames(bigquad)[2] <- 'Y'
 # stt[is.na(stt)] <- 0
@@ -458,7 +491,22 @@ bigquad <- cbind(xydata, bigquad[c(-1,-2)])
 sp.xy = data.frame(IPP.pre2)
 colnames(sp.xy)[1] <- 'X'; colnames(sp.xy)[2] <- 'Y'
 sp.xy <- as.data.frame(lapply(sp.xy, as.integer))
-ppm.form = ~ poly(aspect, tpo, twi, elev,habit2pc,hpop, degree = 2, raw = TRUE)+ poly(distance_tertiaryandlink, degree = 2, raw = TRUE)
+
+ppm.form.e = ~ poly(awc,clay,elev,fpcnew, nitro,sbd,temp_max,temp_min,tpo,twi,degree = 2, raw = TRUE)
+scales = c( 0.5, 1, 2, 4, 8)
+findres(scales, coord = c("X", "Y"), sp.xy = sp.xy, env.grid = bigquad, formula = ppm.form.e)
+
+ppmFit.e = ppmlasso(ppm.form.e, sp.xy = sp.xy, env.grid = bigquad, sp.scale = 1, n.fits = 200,standardise = TRUE)
+#Predict and plot
+pred.fit.e = predict.ppmlasso(ppmFit.e, newdata=bigquad)
+
+predictions.fit.e <- cbind(xydata, pred.fit.e) # xydatan was chnaged to xydata.
+pred.final0.e<- rasterFromXYZ(as.data.frame(predictions.fit.e )[, c("X", "Y", "pred.fit.e")])
+plot(pred.final0.e, main=" koala density-warton method/ env only")
+
+#### Env and distance both
+
+ppm.form = ~ poly(elev,nitro, sbd,temp_max,temp_min,twi,tpo,fpcnew, degree = 2, raw = TRUE)+ poly(distance_trunkandlink,distance_unclassified, degree = 2, raw = TRUE)
 
 scales = c( 0.5, 1, 2, 4, 8)
 findres(scales, coord = c("X", "Y"), sp.xy = sp.xy, env.grid = bigquad, formula = ppm.form)
@@ -479,7 +527,7 @@ predictions.fit.correct <- cbind(xydata, pred.fit.correct) # xydatan was chnaged
 pred.final0.correct<- rasterFromXYZ(as.data.frame(predictions.fit.correct )[, c("X", "Y", "pred.fit.correct")])
 plot(pred.final0.correct, main=" koala density-warton method/ bias corrected")
 
-### residulas:
+### residuals:
 kenv = envelope(ppmFit, fun = Kinhom) # simulated envelop for summary function
 resid.plot = diagnose(ppmFit, which = "smooth", type = "Pearson", main="smoothed pesrson residulas bias corrected model")
 ### with lurking varibale plots.
