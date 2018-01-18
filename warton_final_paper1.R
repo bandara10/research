@@ -55,9 +55,9 @@ plot(myfullstack, c(41:49))
 
 ##check which distance variables are associated with sightings
 
-Distance_primary <- myfullstack[[12]] 
+Distance_primary <- myfullstack[[14]] 
 plot(Distance_primary, main="primary roads"); plot(selected.locations, add=TRUE)
-plot(Distance_motorway <- myfullstack[[15]],main="Distance to motorway"); plot(selected.locations, add=TRUE)
+plot(Distance_motorway <- myfullstack[[17]],main="Distance to motorway"); plot(selected.locations, add=TRUE)
 
 # this is the presence data set. extract?.
 #get the full raster data set.
@@ -66,7 +66,7 @@ myfullstack.a <- list.files(path="rasters_cropped_renner_methods",pattern="\\.ti
 myfullstack = scale(stack(myfullstack.a)) 
 extent(myfullstack) <- extent(c(xmin(myfullstack), xmax(myfullstack), ymin(myfullstack), ymax(myfullstack))/1000)
 #quadrature points
-habitat.r<- subset(myfullstack, c(2,3,12,15,22,23,34,45,46,47,48,49)) # habitat covariates
+habitat.r<- subset(myfullstack, c(1,2,4,5,14, 17,24, 25,36,47,48,49)) # habitat covariates
 bigquad <- as.data.frame(habitat.r, xy=TRUE, na.rm=T)
 
 # to predict using model based control of obser bias at minimum distance.
@@ -89,7 +89,7 @@ sp.xy = data.frame(selected.locations)
 colnames(sp.xy)[1] <- 'X'; colnames(sp.xy)[2] <- 'Y'
 sp.xy <- as.data.frame(lapply(sp.xy, as.integer))
 
-ppm.form.e = ~ poly(awc,clay,elev,fpcnew, nitro,sbd,temp_max,temp_min,tpo,twi,degree = 2, raw = TRUE)
+ppm.form.e = ~ poly(awc,clay,elev,fpcnew, nitro,sbd,AnnualMeanTemperature,AnnualPrecipitation,tpo,twi,degree = 2, raw = TRUE)
 scales = c( 0.5, 1, 2, 4, 8)
 findres(scales, coord = c("X", "Y"), sp.xy = sp.xy, env.grid = bigquad, formula = ppm.form.e)
 
@@ -102,7 +102,8 @@ pred.final0.e<- rasterFromXYZ(as.data.frame(predictions.fit.e )[, c("X", "Y", "p
 plot(pred.final0.e, main=" koala density-warton method/ env only")
 #### Env and distance both
 
-ppm.form = ~ poly(awc,clay,elev,fpcnew, nitro,sbd,temp_max,temp_min,tpo,twi, degree = 2, raw = TRUE)+ poly(distance_primaryandlink,distance_motorwayandlink, degree = 2, raw = TRUE)
+ppm.form = ~ poly(awc,clay,elev,fpcnew, nitro,sbd,AnnualMeanTemperature,AnnualPrecipitation,tpo,twi, degree = 2, raw = TRUE)
++ poly(distance_primaryandlink,distance_motorwayandlink, degree = 2, raw = TRUE)
 
 scales = c( 0.5, 1, 2, 4, 8)
 findres(scales, coord = c("X", "Y"), sp.xy = sp.xy, env.grid = bigquad, formula = ppm.form)
@@ -164,7 +165,58 @@ pred.ct.inter <- rasterFromXYZ(as.data.frame(pred.inter.action)[, c("X", "Y", "p
 plot(pred.ct.inter )
 diagnose.ppmlasso(final.fita)
 
-######### PPM model can be approximated with IWLR / DWPR
+#section 2. ############PPM model can be approximated with IWLR / DWPR########################
+#Step:1 ###### Number of quadrature points for the analysis. 
+setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S")
+#projection(myfullstack) <- gsub("units=m", "units=km", projection(myfullstack))
+myfullstack.a <- list.files(path="rasters_cropped_renner_methods",pattern="\\.tif$") #Mark_s folder
+myfullstack = scale(stack(myfullstack.a)) 
+extent(myfullstack) <- extent(c(xmin(myfullstack), xmax(myfullstack), ymin(myfullstack), ymax(myfullstack))/1000)
+
+habitat.r<- subset(myfullstack, c(1,2,4,5,24, 25,36,47,48,49)) # habitat covariates only. removed distanc :14, 17
+
+#now create all background data.
+bigquad <- as.data.frame(habitat.r, xy=TRUE,na.rm=T) # if varying size quadrature points are needed chnage bigquad to quad.
+#colnames(bigquad)[1] <- 'X'; colnames(bigquad)[2] <- 'Y'
+#quad1 <- quad[c(1,2)]
+n.quad = c(50, 100, 200,500, 1000, 1500, 2000,4000, 7000) # number of quadrature poiints.
+quad.inc = sample(1:dim(bigquad)[1], 1000)
+assign(paste("quad.", n.quad[1], sep = ""), bigquad[quad.inc[1:n.quad[1]],])
+for (i in 2:length(n.quad)){
+  quad.inc = c(quad.inc, sample(setdiff(1:dim(bigquad)[1], quad.inc),
+                                (n.quad[i] - n.quad[i - 1])))
+  assign(paste("quad.", n.quad[i], sep = ""), bigquad[quad.inc[1:n.quad[i]],])
+}
+
+#compare the likelihood of PPMs fitted using downweighted Poisson regression:
+#create species data
+#IPP.pre is koala data
+
+IPP.pre2 <- as.data.frame(selected.locations2)/1000 # rasters should be in the same extent.: 
+spdata <- cbind(IPP.pre2,(extract(habitat.r, IPP.pre2)))
+sp.dat <- as.data.frame(spdata)
+sp.dat$Pres = 1
+loglik = rep(NA, length(n.quad))
+
+for (i in 1:length(n.quad)){
+  quad = get(paste("quad.", n.quad[i], sep = ""))
+  quad$Pres = 0
+  all.dat = na.omit(data.frame(rbind(sp.dat, quad)))
+  X.des = as.matrix(cbind(poly(all.dat$AnnualMeanTemperature, all.dat$AnnualPrecipitation, all.dat$awc
+                               ,all.dat$clay, all.dat$elev, all.dat$elev
+                               , all.dat$fpcnew,all.dat$nitro,all.dat$sbd,all.dat$tpo
+                               ,all.dat$twi ,degree = 2, raw = TRUE)))
+  
+  p.wt = rep(1.e-8, dim(all.dat)[1])
+  p.wt[all.dat$Pres == 0] = 10000/n.quad[i]
+  z = all.dat$Pres/p.wt
+  dwpr = glm(z ~ X.des, family = poisson(), weights = p.wt)
+  mu = dwpr$fitted
+  loglik[i] = sum(p.wt*(z*log(mu) - mu))
+}
+plot(n.quad, loglik, log = "x", type = "o")
+
+
 ###### do a IWLR| DWPR as Renner et al. ##########
 load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//mydatasighting_cleaned.RData")
 mydata <- mydatasighting_cleaned
@@ -178,78 +230,102 @@ plot(all.locations)
 source("Lib_DistEstimatesToItself.r")
 all.locations$disttoitself = Lib_DistEstimatesToItself(all.locations$x, all.locations$y)
 select.locations = subset(all.locations, all.locations$disttoitself > 400)
-selected.locations = select.locations[,1:2]
+selected.loc = select.locations[,1:2]
 
 # keep a buffer distance of 2000m as required by this method.
 # get  raster dimentions:441829, 541829, 6901098, 7001098  (xmin, xmax, ymin, ymax)
 
-selected.locations2<- subset(selected.locations, x > 443829 & x < 539829)
-selected.locations <- subset(selected.locations2, y > 6903098 & y < 6999098) # xy only within the study area.
-coordinates(selected.locations) <- ~x+y
+selected.loc2<- subset(selected.loc, x > 443829 & x < 539829)
+selected.loc3 <- subset(selected.loc2, y > 6903098 & y < 6999098) # xy only within the study area.
+coordinates(selected.loc3) <- ~x+y
 
-selected.locations=as.data.frame(selected.locations)/1000
-selected.locations$Haskoala <- 1
+selected.loca4=as.data.frame(selected.loc3)/1000
+
 
 # step 1: preapre data: 
 myfullstack.a <- list.files(path="rasters_cropped_renner_methods",pattern="\\.tif$") #Mark_s folder
 myfullstack = stack(myfullstack.a) 
-# myfullstack = stack(myfullstack.a)
-# acsel211 <- acsel21[c(1,2)]
-# X.des=as.matrix(extract(myfullstack,acsel211))
+habitat.r<- subset(myfullstack, c(1,2,4,5,24, 25,36,47,48,49)) # habitat covariates only. distance covariate: 14, 17,
+extent(habitat.r) <- extent(c(xmin(habitat.r), xmax(habitat.r), ymin(habitat.r), ymax(habitat.r))/1000)
+X.des <- as.data.frame(habitat.r,na.rm=T)
+X.des <- as.matrix(X.des)
 
-habitat.r<- subset(myfullstack, c(2,3,12,15,22,23,34,45,46,47,48,49)) # habitat covariates
-X.des <- as.matrix(habitat.r)/1000
+####need a raster without NA in stack zise.
+dummy <- as.data.frame(habitat.r,na.rm=T, xy=TRUE)
+r <- rasterFromXYZ(as.data.frame(dummy )[, c("x", "y", "awc")])
+plot(dummy.r)
 
+
+# here comes a problem . varibales length do not match.
+# S first use selected.locations and extract valuves, then remove na. get xy to create a vector of 0 1
+selected.loc.new <- cbind(selected.loca4,extract(habitat.r,selected.loca4))
+#### remove NA at this stage.
+selected.loc.new <- as.data.frame(selected.loc.new,na.rm=T)
+selected.loc.new <- selected.loc.new[c(1:2)] # this data will be used to create a 0 1 vector.
+selected.loc.new$Haskoala <- 1
+#xy.select <- selected.loc.new[1,2]
 
 # code to get all presence absences. Put all presences and mark them as 1 and all others zero. Then get 0/1.
 # This is the response data in iwlr and dwpr. Generally need presence locations only for other methods but
 #this is approximating ppm with logistic regression. So need 0/1.
-extent(habitat.r) <- extent(c(xmin(habitat.r), xmax(habitat.r), ymin(habitat.r), ymax(habitat.r))/1000)
-r <- raster(habitat.r, layer=2)
-dfull <- as.data.frame(r, xy = TRUE)
-dpart = cbind(selected.locations,extract(r,selected.locations[,1:2]))
-dpart <- subset(selected.locations, Haskoala==1)
+# r <- raster(habitat.r, layer=4)
+dfull <- as.data.frame(r, xy = TRUE,na.rm=T)
+dpart = cbind(selected.loc.new,extract(r,selected.loc.new[,1:2]))
+dpart <- subset(selected.loc.new, Haskoala==1)
 rspec <- raster(r)
 rspec[] <- 0
 cells <- cellFromXY(rspec, as.matrix(dpart[, c("x", "y")]))
 rspec[cells] <- dpart$Haskoala
 plot(rspec)
+rspec2 <- mask(rspec, r)
+plot(rspec2)
 text(dpart$x, dpart$y, lab = dpart$Haskoala)
-Press<- as.data.frame(rspec, xy=TRUE)
-Pres <- Press[,3]   # this create a vector, Press[c(3)] create a sublist.
+Press<- as.data.frame(rspec2, xy=TRUE,na.rm=T)
 
-####iwlr
-up.wt = (10^6)^(1 - Pres)
+Pres <- Press[,3]   
+#Pres <- as.data.frame(na.omit(Pres))  # this create a vector, Press[c(3)] create a sublist.
+
+####IWLR#####
+up.wt = (10^6)^(1 - Pres) # positive valuves get by using 1.e-6
 iwlr = glm(Pres ~ X.des, family = binomial(), weights = up.wt)
 
 dd1 <- as.data.frame(X.des) # get coordinates of the design matrix for predictions. similr to warton method.
 pred.iwlr = predict(iwlr, newdata=dd1)
-r <- raster(habitat.r, layer=2)
-dfull <- as.data.frame(r, xy = TRUE)
+# r <- raster(habitat.r, layer=2)
+dummy <- as.data.frame(habitat.r,na.rm=T, xy=TRUE)
+r <- rasterFromXYZ(as.data.frame(dummy )[, c("x", "y", "awc")])
+dfull <- as.data.frame(r, xy = TRUE,na.rm=T)
 xydatan <- dfull[c(1,2)]
 # get coordinates only
 pred.iwlr <- cbind(xydatan, pred.iwlr)
 pred.iwlreg <- rasterFromXYZ(as.data.frame(pred.iwlr)[, c("x", "y", "pred.iwlr")])
 plot(pred.iwlreg,asp=1)
 
+####Get area of each cell catogory
+r=pred.iwlreg
+intervals <- list(c (7,8), c (8 ,9),c (9,14))
+sapply(intervals, function(x) { 
+  sum(r[] > x[1] & r[] <= x[2])
+})
 
-
-###DWPR
+###DWPR#####
 p.wt = rep(1.e-6, length(Pres))
 p.wt[Pres == 0] = 10000/sum(Pres == 0)
 dwpr = glm(Pres/p.wt ~ X.des, family = poisson(), weights = p.wt)
 
 dd <- as.data.frame(X.des)
 pred.dwpr = predict(dwpr, newdata=dd)
-r <- raster(habitat.r, layer=2)
-dfull <- as.data.frame(r, xy = TRUE)
+#r <- raster(habitat.r, layer=2)
+dummy <- as.data.frame(habitat.r,na.rm=T, xy=TRUE)
+r <- rasterFromXYZ(as.data.frame(dummy )[, c("x", "y", "awc")])
+dfull <- as.data.frame(r, xy = TRUE,na.rm=T)
 xydatan <- dfull[c(1,2)]
 # get coordinates only
 pred.dwpr <- cbind(xydatan, pred.dwpr)
 pred.dwpreg <- rasterFromXYZ(as.data.frame(pred.dwpr)[, c("x", "y", "pred.dwpr")])
 plot(pred.dwpreg,asp=1)
 
-m
+
 
 
 
