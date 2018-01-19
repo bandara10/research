@@ -1,38 +1,46 @@
 library(maptools); library(sp); library(raster); library(rgdal); library(spatstat); library(ggplot2)
 library(spatialkernel); library(splancs); library(RColorBrewer); library(dismo); library(spatial.tools)
+library(raster) #
+library(rgdal)  
+library(gstat)  #
+library(ncf)    #
+library(spatstat)
+library(foreign)
+library(maptools)
+library(nlme)   
+library(MASS)
+library(ROCR)
+library(vcd)
+library(epicalc)
+library(RColorBrewer) # 
+library(classInt)
 
+#load functions code.
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S")
 
 # Load all of the objects in the R workspace up to the point of starting the ppm modelling (starts on line 596):
 load(file = "C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\AU_Qld_koala_habitat_v07.RData")
 
-mydatasighting <- read.csv("mydatasighting.csv", header = TRUE)
-mydata <- data.frame(mydatasighting)
-names(mydata)
-
-# Subset the data:
+mydata  <- read.csv("mydatasighting.csv", header = TRUE)
 mydata <- mydata[c("LAT","LNG","X","Y", "CallerName", "HomePhone", "WorkPhone", "Sighting","SexId", "FateId", "LGA" , "monthnew", "yearnew", "Suburb", "PostCode")]
 names(mydata) <- tolower(names(mydata))
-# myND <- subset(mydata, yearnew <= 1999, select = c("x","y"))
+# myND <- subset(mydata, yearnew <= 2011, select = c("x","y"))
 
 # mydata$homephone <- ifelse(is.na(mydata$homephone), mydata$workphone, mydata$homephone)
 
 # Analyse data for 2011:
 id <- mydata$yearnew == 2011
 table(id)
-mydata <- mydata[id,]
-dim(mydata)
-names(mydata)
-
-
-
+# mydata <- mydata[id,]
+# dim(mydata)
+# names(mydata)
 
 # Bring in MGA56 study area boundary map:
 unzip("vector\\AU_Qld_study_area.zip")
 studyarea.shp <- readShapePoly("AU_Qld_study_area-MGA56.shp")
 proj4string(studyarea.shp) <- CRS("+init=epsg:28356") 
 plot(studyarea.shp)
-id <- mydata$lat > -30 # remove record with wrong coordinate
+id<- mydata$lat > -30 # remove record with wrong coordinate
 mydata <- mydata[id,]
 head(mydata)
 # mydata in lat-lon:
@@ -52,7 +60,7 @@ windows(); plot(mydata.mga, cex = 0.3, col = 'blue', pch = 15)
 # Create a 3 km by 3 km grid:
 mydata.r <- raster(studyarea.shp)
 res(mydata.r) <- 1000
-mydata.r <- extend(mydata.r, extent(mydata.r) + 1000)#extenet should be similar to the selected area not the full dataset
+mydata.r <- extend(mydata.r, extent(mydata.r) + 3000)#extenet should be similar to the selected area not the full dataset
 #writeRaster(mydata.r,"testing.asc")
 #windows(); plot(mydata.r)
 # create the disance matrix
@@ -73,7 +81,8 @@ myFD2 = myInPtDF2[,1:2]
 myFD2$all = 0
 myFD = rbind(acsel,myFD2)
 windows();plot(myFD, axes = T,col=c("red","blue")[myFD$all+1])
-myFD3<-as.data.frame(myFD)
+myFD3<-as.data.frame(myFD) #;acsel <- myFD3 [c(1,2)]
+#acsel <- as.data.frame(myFD);acsel<-acsel[c(1,2,3)]; acsel <- subset(acsel, all==1,select=x:y)
 #########END of distance based selection#####
 # Sample points from within each grid cell:
 acsel <- gridSample(mydata.mga, mydata.r, n = 1)
@@ -161,8 +170,8 @@ myGLM = glm(as.formula(myStr), data = acsel22, family = "binomial")
 summary(myGLM)
 # Stores the residuals
 acsel22$res = residuals(myGLM)
-# Create a spatial correlogram of the residuals
-myResCorr <- correlog(acsel22$x, acsel22$y, acsel22$res,na.rm=T, increment=1000, resamp=0, latlon = F)
+# Create a spatial correlogram of the residuals. coords=acsel22[c(1,2)] ; res=acsel22[c(7)]
+myResCorr <- correlog(acsel22$x, acsel22$y, acsel22$res, na.rm=T, increment=10000, resamp=0, latlon = F)
 #mySigVec = ifelse(myResCorr$p<0.05,1,0)  
 #plot(myResCorr$mean.of.class[1:20], myResCorr$correlation[1:20] ,type="b", col = mySigVec[1:20]+1, pch=16, lwd=1.5, cex = 1.2,
 #xlab="distance", ylab="Moran's I")
@@ -463,13 +472,13 @@ habitrasters<- subset(myfullstack, c(1,49,48,22,29,32,33)) # habitat covariates
 bigquad <- as.data.frame(habitrasters, xy=TRUE, na.rm=T)
 #stt <- na.omit(stt)
 colnames(bigquad)[1] <- 'X'; colnames(bigquad)[2] <- 'Y'
-# stt[is.na(stt)] <- 0
-xydatan <- bigquad[c(1,2)]
+# bigquad [is.na(bigquad )] <- 0
+xydatan <- bigquad[c(1,2)]/1000
 # stt requires xy as integers.
 xydata <- as.data.frame(lapply(xydatan, as.integer)) # stt[] <- lapply(stt, as.integer)#this line edited on 04/01# make only xy integer in line with dadta shared with Mark S. 
 bigquad <- cbind(xydata, bigquad[c(-1,-2)])
 
-
+#IPP.pre2 <- acsel210 /1000
 sp.xy = data.frame(IPP.pre2)
 colnames(sp.xy)[1] <- 'X'; colnames(sp.xy)[2] <- 'Y'
 sp.xy <- as.data.frame(lapply(sp.xy, as.integer))
@@ -525,3 +534,4 @@ XY=XY/1000
 save(XY, file = "Eucalyptus sparsifolia2.RData")
 load("Eucalyptus sparsifolia2.RData")
 
+#

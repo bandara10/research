@@ -43,7 +43,7 @@ coordinates(selected.locations) <- ~x+y
 
 
 #####NOTE: Scaling all rasters gives slightly different predictions.
-myfullstack.a <- list.files(path="rasters_cropped_renner_methods",pattern="\\.tif$") #Mark_s folder
+myfullstack.a <- list.files(path="rasters_cropped_renner_methods",pattern="\\.tif$")
 myfullstack = scale(stack(myfullstack.a)) 
 #plot rasters 
 plot(myfullstack[1:10])
@@ -51,28 +51,27 @@ plot(myfullstack, c(1:10))
 plot(myfullstack, c(11:20))
 plot(myfullstack, c(21:30))
 plot(myfullstack, c(31:40))
-plot(myfullstack, c(41:49))
+plot(myfullstack, c(41:45))
 
 ##check which distance variables are associated with sightings
 
-Distance_primary <- myfullstack[[14]] 
+Distance_primary <- myfullstack[[17]] 
 plot(Distance_primary, main="primary roads"); plot(selected.locations, add=TRUE)
-plot(Distance_motorway <- myfullstack[[17]],main="Distance to motorway"); plot(selected.locations, add=TRUE)
+plot(Distance_motorway <- myfullstack[[14]],main="Distance to motorway"); plot(selected.locations, add=TRUE)
 
 # this is the presence data set. extract?.
 #get the full raster data set.
 #projection(myfullstack) <- gsub("units=m", "units=km", projection(myfullstack))
-myfullstack.a <- list.files(path="rasters_cropped_renner_methods",pattern="\\.tif$") #Mark_s folder
-myfullstack = scale(stack(myfullstack.a)) 
+# myfullstack.a <- list.files(path="rasters_cropped_renner_methods",pattern="\\.tif$") #Mark_s folder
+# myfullstack = scale(stack(myfullstack.a)) 
 extent(myfullstack) <- extent(c(xmin(myfullstack), xmax(myfullstack), ymin(myfullstack), ymax(myfullstack))/1000)
 #quadrature points
-habitat.r<- subset(myfullstack, c(1,2,4,5,14, 17,24, 25,36,47,48,49)) # habitat covariates
+habitat.r<- subset(myfullstack, c(1,2,4,5,14, 17,24, 25,27,28,29,32,43,44,45)) # habitat covariates
 bigquad <- as.data.frame(habitat.r, xy=TRUE, na.rm=T)
 
 # to predict using model based control of obser bias at minimum distance.
 bigquad.2 <- bigquad
 bigquad.2$distance_primaryandlink = min(bigquad.2$distance_primaryandlink) 
-
 bigquad.2$distance_motorwayandlink = min(bigquad.2$distance_motorwayandlink)
 #stt <- na.omit(stt)
 colnames(bigquad)[1] <- 'X'; colnames(bigquad)[2] <- 'Y'
@@ -89,11 +88,11 @@ sp.xy = data.frame(selected.locations)
 colnames(sp.xy)[1] <- 'X'; colnames(sp.xy)[2] <- 'Y'
 sp.xy <- as.data.frame(lapply(sp.xy, as.integer))
 
-ppm.form.e = ~ poly(awc,clay,elev,fpcnew, nitro,sbd,AnnualMeanTemperature,AnnualPrecipitation,tpo,twi,degree = 2, raw = TRUE)
+ppm.form.e = ~ poly(awc,clay,elev,fpcnew, nitro,sbd,AnnualMeanTemperature,AnnualPrecipitation,tpo,twi,habit1decimal,habit2decimal,habit3decimal,degree = 2, raw = TRUE)
 scales = c( 0.5, 1, 2, 4, 8)
 findres(scales, coord = c("X", "Y"), sp.xy = sp.xy, env.grid = bigquad, formula = ppm.form.e)
 
-ppmFit.e = ppmlasso(ppm.form.e, sp.xy = sp.xy, env.grid = bigquad, sp.scale = 1, n.fits = 200)
+ppmFit.e = ppmlasso(ppm.form.e, sp.xy = sp.xy, env.grid = bigquad, sp.scale = 2, n.fits = 200)
 #Predict and plot
 pred.fit.e = predict.ppmlasso(ppmFit.e, newdata=bigquad)
 
@@ -102,8 +101,7 @@ pred.final0.e<- rasterFromXYZ(as.data.frame(predictions.fit.e )[, c("X", "Y", "p
 plot(pred.final0.e, main=" koala density-warton method/ env only")
 #### Env and distance both
 
-ppm.form = ~ poly(awc,clay,elev,fpcnew, nitro,sbd,AnnualMeanTemperature,AnnualPrecipitation,tpo,twi, degree = 2, raw = TRUE)
-+ poly(distance_primaryandlink,distance_motorwayandlink, degree = 2, raw = TRUE)
+ppm.form = ~ poly(awc,clay,elev,fpcnew, nitro,sbd,AnnualMeanTemperature,AnnualPrecipitation,tpo,twi, habit1decimal,habit2decimal,habit3decimal,degree = 2, raw = TRUE)+poly(distance_primaryandlink,distance_motorwayandlink, degree = 2, raw = TRUE)
 
 scales = c( 0.5, 1, 2, 4, 8)
 findres(scales, coord = c("X", "Y"), sp.xy = sp.xy, env.grid = bigquad, formula = ppm.form)
@@ -135,7 +133,7 @@ plot(kenv,main= "Inhomogeneous K-function with 95% simulation envelope")
 #A regularisation path of Poisson point process models
 quad.1k = sample.quad(bigquad, 1)
 ppm.fit = ppmlasso(ppm.form, sp.xy = sp.xy, env.grid = quad.1k,sp.scale = 1, criterion = "nlgcv")
-
+diagnose(ppm.fit)
 #4.3 Block cross-validation
 #block cross-validation as a method for choosing the LASSO penalty
 #area interaction model with radius 2k and lasso penalty by5-fold cross validation.
@@ -173,7 +171,7 @@ myfullstack.a <- list.files(path="rasters_cropped_renner_methods",pattern="\\.ti
 myfullstack = scale(stack(myfullstack.a)) 
 extent(myfullstack) <- extent(c(xmin(myfullstack), xmax(myfullstack), ymin(myfullstack), ymax(myfullstack))/1000)
 
-habitat.r<- subset(myfullstack, c(1,2,4,5,24, 25,36,47,48,49)) # habitat covariates only. removed distanc :14, 17
+habitat.r<- subset(myfullstack, c(1,2,4,5,14, 17,24, 25,32,43,44,45)) # habitat covariates only. removed distanc :14, 17
 
 #now create all background data.
 bigquad <- as.data.frame(habitat.r, xy=TRUE,na.rm=T) # if varying size quadrature points are needed chnage bigquad to quad.
@@ -240,12 +238,10 @@ selected.loc3 <- subset(selected.loc2, y > 6903098 & y < 6999098) # xy only with
 coordinates(selected.loc3) <- ~x+y
 
 selected.loca4=as.data.frame(selected.loc3)/1000
-
-
 # step 1: preapre data: 
 myfullstack.a <- list.files(path="rasters_cropped_renner_methods",pattern="\\.tif$") #Mark_s folder
 myfullstack = stack(myfullstack.a) 
-habitat.r<- subset(myfullstack, c(1,2,4,5,24, 25,36,47,48,49)) # habitat covariates only. distance covariate: 14, 17,
+habitat.r<- subset(myfullstack, c(1,2,4,5,14, 17,24, 25,32,43,44,45)) # habitat covariates only. distance covariate: 14, 17,
 extent(habitat.r) <- extent(c(xmin(habitat.r), xmax(habitat.r), ymin(habitat.r), ymax(habitat.r))/1000)
 X.des <- as.data.frame(habitat.r,na.rm=T)
 X.des <- as.matrix(X.des)

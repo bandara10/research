@@ -17,7 +17,6 @@ myfullstack = stack(myfullstack.a)
 myfullstack <- scale(myfullstack)
 
 #### Step 2: import koala .csv data from the full study land region. Full square study are consists of land and sea. ####
-
 hefleydata <- read.csv("hefley_fishnet_rastermatch2011.csv", header = TRUE) # centroids for full study area as some zeros are required.
 names(hefleydata)
 # get only coordinates from dataset.

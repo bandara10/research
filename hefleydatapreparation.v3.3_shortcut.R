@@ -30,7 +30,6 @@ selected.locations <- subset(selected.locations2, y > 6903098 & y < 6999098) # x
 ####
 #myfullstack.a <- list.files(path="C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\rasters_cropped_renner_methods",pattern="\\.tif$") #Mark_s folder
 myfullstack.a <- list.files (pattern= "\\.tif$")
-
 #chage the path.
 # bring group tif file. raster_stack/group.tif 
 myfullstack = stack(myfullstack.a)
