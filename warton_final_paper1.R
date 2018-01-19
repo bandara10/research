@@ -15,36 +15,18 @@ library(vcd)
 library(RColorBrewer) # 
 library(classInt)
 library(ppmlasso)
-
+library(usdm)
 
 ##############
-setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S")
+setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\rasters_cropped_renner_methods")
 
-load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//mydatasighting_cleaned.RData")
-mydata <- mydatasighting_cleaned
-mydata <- mydata[c("X","Y","yearnew")]
-names(mydata) <- tolower(names(mydata))
-
-# Analyse data for 2011:
-all.locations= subset(mydata,yearnew >2000:2015, select=x:y)
-plot(all.locations)
-# set a minimum distance betweek koalas
-source("Lib_DistEstimatesToItself.r")
-all.locations$disttoitself = Lib_DistEstimatesToItself(all.locations$x, all.locations$y)
-select.locations = subset(all.locations, all.locations$disttoitself > 400)
-selected.locations = select.locations[,1:2]
-
-# keep a buffer distance of 2000m as required by this method.
-# get  raster dimentions:441829, 541829, 6901098, 7001098  (xmin, xmax, ymin, ymax)
-
-selected.locations2<- subset(selected.locations, x > 443829 & x < 539829)
-selected.locations <- subset(selected.locations2, y > 6903098 & y < 6999098) # xy only within the study area.
-coordinates(selected.locations) <- ~x+y
 
 
 #####NOTE: Scaling all rasters gives slightly different predictions.
-myfullstack.a <- list.files(path="rasters_cropped_renner_methods",pattern="\\.tif$")
+myfullstack.a <- list.files(pattern="\\.tif$")
 myfullstack = scale(stack(myfullstack.a)) 
+#myfullstack <- scale(myfullstack,scale=TRUE,center = TRUE)
+vif(myfullstack)
 #plot rasters 
 plot(myfullstack[1:10])
 plot(myfullstack, c(1:10))
@@ -54,10 +36,6 @@ plot(myfullstack, c(31:40))
 plot(myfullstack, c(41:45))
 
 ##check which distance variables are associated with sightings
-
-Distance_primary <- myfullstack[[17]] 
-plot(Distance_primary, main="primary roads"); plot(selected.locations, add=TRUE)
-plot(Distance_motorway <- myfullstack[[14]],main="Distance to motorway"); plot(selected.locations, add=TRUE)
 
 # this is the presence data set. extract?.
 #get the full raster data set.
@@ -69,6 +47,21 @@ extent(myfullstack) <- extent(c(xmin(myfullstack), xmax(myfullstack), ymin(myful
 habitat.r<- subset(myfullstack, c(1,2,4,5,14, 17,24, 25,27,28,29,32,43,44,45)) # habitat covariates
 bigquad <- as.data.frame(habitat.r, xy=TRUE, na.rm=T)
 
+
+##### to get buffers first get  xy from bigquad. extract buffer-habitat. cbind, remove xy. 
+bigquad.t <- as.data.frame(habitat.r, xy=TRUE)
+bigquadxy=bigquad.t[c(1,2)]
+fpcnew=myfullstack$fpcnew
+buff=extract(fpcnew,bigquadxy, fun=max,buffer=3,df=TRUE)
+#rename this vvariable as buffer
+colnames(buff)[2] <- 'fpcnew_buff'
+buff=buff[c(2)]
+bigquad.t2=cbind(buff,bigquad.t)
+bigquad.t2=na.omit(bigquad.t2)
+bigquad.n=bigquad.t2
+bigquad=bigquad.n[c(2:18,1)]
+
+
 # to predict using model based control of obser bias at minimum distance.
 bigquad.2 <- bigquad
 bigquad.2$distance_primaryandlink = min(bigquad.2$distance_primaryandlink) 
@@ -79,20 +72,66 @@ colnames(bigquad)[1] <- 'X'; colnames(bigquad)[2] <- 'Y'
 xydatan <- bigquad[c(1,2)]
 # stt requires xy as integers.
 xydata <- as.data.frame(lapply(xydatan, as.integer)) # stt[] <- lapply(stt, as.integer)#this line edited on 04/01# make only xy integer in line with dadta shared with Mark S. 
-bigquad <- cbind(xydata, bigquad[c(-1,-2)])
+dd=bigquad[c(-1,-2)]
+bigquad <- cbind(xydata,dd )
+
+ddd=bigquad.2[c(-1,-2)]
+bigquad.2 <- cbind(xydata,ddd )
+
 
 # get species selected data as a dataframe
-selected.locations=as.data.frame(selected.locations)/1000
 
+load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//mydatasighting_cleaned.RData")
+mydata <- mydatasighting_cleaned
+mydata <- mydata[c("X","Y","yearnew")]
+names(mydata) <- tolower(names(mydata))
+
+# Analyse data for 2011:
+all.locations= subset(mydata,yearnew >1998:2015, select=x:y)
+#mydata1=SpatialPoints(all.locations)# use this extent to crop a raster stack for bigger analysis.
+#crop(myraster,mydata1)
+plot(all.locations)
+#select a radom sample
+selected.locations=all.locations[sample(nrow(all.locations), 500), ]
+
+# set a minimum distance betweek koalas
+source("Lib_DistEstimatesToItself.r")
+all.locations$disttoitself = Lib_DistEstimatesToItself(all.locations$x, all.locations$y)
+select.locations = subset(all.locations, all.locations$disttoitself > 400)
+selected.locations = select.locations[,1:2]
+# radomly select  sample.
+#selected.locations=selected.locations[sample(nrow(selected.locations), 1000), ]
+# Distance_primary <- myfullstack[[17]] 
+# plot(Distance_primary, main="primary roads")
+# Distance_motorway <- myfullstack[[14]]
+# plot(Distance_motorway,main="Distance to motorway")
+
+
+# keep a buffer distance of 2000m as required by this method.
+# get  raster dimentions:441829, 541829, 6901098, 7001098  (xmin, xmax, ymin, ymax)
+
+selected.locations2<- subset(selected.locations, x > 442829 & x < 541829)
+selected.locations <- subset(selected.locations2, y > 6901098 & y < 7009098) # xy only within the study area.
+points(selected.locations$x, selected.locations$y, pch=15, col="red")
+selected.locations=as.data.frame(selected.locations)/1000
+plot(selected.locations)
 sp.xy = data.frame(selected.locations)
 colnames(sp.xy)[1] <- 'X'; colnames(sp.xy)[2] <- 'Y'
 sp.xy <- as.data.frame(lapply(sp.xy, as.integer))
 
-ppm.form.e = ~ poly(awc,clay,elev,fpcnew, nitro,sbd,AnnualMeanTemperature,AnnualPrecipitation,tpo,twi,habit1decimal,habit2decimal,habit3decimal,degree = 2, raw = TRUE)
-scales = c( 0.5, 1, 2, 4, 8)
+#ppm.form.e = ~ poly(clay,elev,fpcnew,fpcnew_buff, nitro,sbd,AnnualMeanTemperature,AnnualPrecipitation,tpo,twi,habit1decimal,degree = 1, raw = TRUE)
+ppm.form.e = ~ poly(AnnualMeanTemperature,habit1decimal,fpcnew,AnnualPrecipitation,degree = 1, raw = TRUE)
+scales = c( 0.5, 1, 2, 4, 8,16,32)
 findres(scales, coord = c("X", "Y"), sp.xy = sp.xy, env.grid = bigquad, formula = ppm.form.e)
 
-ppmFit.e = ppmlasso(ppm.form.e, sp.xy = sp.xy, env.grid = bigquad, sp.scale = 2, n.fits = 200)
+ppmFit.e = ppmlasso(ppm.form.e, sp.xy = sp.xy, env.grid = bigquad, sp.scale = 1, n.fits = 200)
+diagnose.ppmlasso(ppmFit.e)
+##########
+opar <- par() #make a copy of current settings
+#par(opar)          # restore original settings
+mypar <- par(mar=c(0.5,0.5,0.5,0.5), oma=c(0.5,0.5,0.5,0.5))
+###########
+
 #Predict and plot
 pred.fit.e = predict.ppmlasso(ppmFit.e, newdata=bigquad)
 
@@ -101,23 +140,17 @@ pred.final0.e<- rasterFromXYZ(as.data.frame(predictions.fit.e )[, c("X", "Y", "p
 plot(pred.final0.e, main=" koala density-warton method/ env only")
 #### Env and distance both
 
-ppm.form = ~ poly(awc,clay,elev,fpcnew, nitro,sbd,AnnualMeanTemperature,AnnualPrecipitation,tpo,twi, habit1decimal,habit2decimal,habit3decimal,degree = 2, raw = TRUE)+poly(distance_primaryandlink,distance_motorwayandlink, degree = 2, raw = TRUE)
+ppm.form = ~ poly(awc,clay,elev,fpcnew,fpcnew_buff, nitro,sbd,AnnualMeanTemperature,AnnualPrecipitation,tpo,twi, habit1decimal,degree = 2, raw = TRUE)+poly(distance_primaryandlink,distance_motorwayandlink,degree = 2, raw = TRUE)
 
 scales = c( 0.5, 1, 2, 4, 8)
 findres(scales, coord = c("X", "Y"), sp.xy = sp.xy, env.grid = bigquad, formula = ppm.form)
 #4.2 Fitting a regularisation path of point process models
 #a LASSO penalty that optimises non-linear GCV
 ppmFit = ppmlasso(ppm.form, sp.xy = sp.xy, env.grid = bigquad, sp.scale = 1, n.fits = 200)
-#Predict and plot
-pred.fit = predict.ppmlasso(ppmFit, newdata=bigquad)
-
-predictions.fit <- cbind(xydata, pred.fit) # xydatan was chnaged to xydata.
-pred.final0<- rasterFromXYZ(as.data.frame(predictions.fit )[, c("X", "Y", "pred.fit")])
-plot(pred.final0, main=" koala density-WM env & dist/ bias not corrected")
+diagnose.ppmlasso(ppmFit)
 
 # now correct for bias.
 pred.fit.correct = predict.ppmlasso(ppmFit, newdata=bigquad.2)
-
 predictions.fit.correct <- cbind(xydata, pred.fit.correct) # xydatan was chnaged to xydata.
 pred.final0.correct<- rasterFromXYZ(as.data.frame(predictions.fit.correct )[, c("X", "Y", "pred.fit.correct")])
 plot(pred.final0.correct, main=" koala density-warton method/ bias corrected")
@@ -129,6 +162,11 @@ diagnose.ppmlasso(ppmFit)
 #K-envelop
 kenv = envelope(ppmFit, fun = Kinhom, nsim=39) # simulated envelop for summary function 
 plot(kenv,main= "Inhomogeneous K-function with 95% simulation envelope")
+
+
+
+
+
 
 #A regularisation path of Poisson point process models
 quad.1k = sample.quad(bigquad, 1)
