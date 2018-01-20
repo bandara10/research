@@ -37,31 +37,40 @@ selected.locations = select.locations[,1:2]
 (b=SpatialPoints(selected.locations))#chextent then keep a small buffer area.
 selected.locations2<- subset(selected.locations, X > 438.9503 & X < 553.9503)
 selected.locations <- subset(selected.locations2, Y > 6873.579 & Y < 7108.579) # xy only within the study area.
-points(selected.locations$x, selected.locations$y, pch=15, col="red")
+#points(selected.locations$x, selected.locations$y, pch=15, col="red")
 
 #prepare rasters,
 myfullstack.a <- list.files(pattern="\\.tif$")
 myfullstack = scale(stack(myfullstack.a)) 
+#myfullstack=crop(myfullstack,lga10.shp)
 extent(myfullstack) <- extent(c(xmin(myfullstack), xmax(myfullstack), ymin(myfullstack), ymax(myfullstack))/1000)
 habitat.r<- subset(myfullstack, c(1,2,4,6,13,16,23, 24, 25,26,27,28,29,39,40,41))
 
+habitat.r=crop(habitat.r,b)
 #plot(habitat.r,1)
-#Quadrature points.
+#Quadrature points. stt[is.na(stt)] <- 0
 bigquad <- as.data.frame(habitat.r, xy=TRUE,na.rm=T)
-
+#loc=SpatialPoints(bigquad)
 #koala dataxy
 sp.xy = data.frame(selected.locations)
+
 sp.xy <- as.data.frame(lapply(sp.xy, as.integer))
 
 ##### to predict using model based control of observer bias based on same level of distance
-bigquad[, c(1,2)] <- sapply(bigquad[, c(1,2)], as.integer)
 bigquad.2 <- bigquad
 bigquad.2$distance_primaryandlink = min(bigquad.2$distance_primaryandlink) 
 bigquad.2$distance_motorwayandlink = min(bigquad.2$distance_motorwayandlink)
+#stt <- na.omit(stt)
+colnames(bigquad)[1] <- 'X'; colnames(bigquad)[2] <- 'Y'
 # stt[is.na(stt)] <- 0
 xydatan <- bigquad[c(1,2)]
 # stt requires xy as integers.
-xydata <- as.data.frame(lapply(xydatan, as.integer))  
+xydata <- as.data.frame(lapply(xydatan, as.integer)) # stt[] <- lapply(stt, as.integer)#this line edited on 04/01# make only xy integer in line with dadta shared with Mark S. 
+dd=bigquad[c(-1,-2)]
+bigquad <- cbind(xydata,dd )
+
+ddd=bigquad.2[c(-1,-2)]
+bigquad.2 <- cbind(xydata,ddd )
 
 
   #gt species selected data as a dataframe
@@ -72,7 +81,6 @@ xydata <- as.data.frame(lapply(xydatan, as.integer))
 ppm.form.e = ~ poly(AnnualMeanTemperature,habit1decimal,fpcnew,AnnualPrecipitation,degree = 1, raw = TRUE)
 scales = c( 0.5, 1, 2, 4, 8,16,32)
 findres(scales, coord = c("X", "Y"), sp.xy = sp.xy, env.grid = bigquad, formula = ppm.form.e)
-
 ppmFit.e = ppmlasso(ppm.form.e, sp.xy = sp.xy, env.grid = bigquad, sp.scale = 1, n.fits = 200)
 diagnose.ppmlasso(ppmFit.e)
 resid.plot = diagnose(ppmFit.e, which = "smooth", type = "Pearson", main="smoothed pesrson residulas env model")
@@ -91,7 +99,6 @@ pred.final0.e<- rasterFromXYZ(as.data.frame(predictions.fit.e )[, c("X", "Y", "p
 pred.final0.e
 extent(pred.final0.e) <- extent(c(xmin(pred.final0.e), xmax(pred.final0.e), ymin(pred.final0.e), ymax(pred.final0.e))*1000)
 plot(pred.final0.e, main=" koala density-warton method/ env only")
-
 lga10.shp <- readShapePoly("LGA10new.shp")
 plot(lga10.shp, add=TRUE)
 pred.crop=crop(pred.final0.e,lga10.shp)
@@ -129,6 +136,16 @@ pred.fit.correct = predict.ppmlasso(ppmFit, newdata=bigquad.2)
 predictions.fit.correct <- cbind(xydata, pred.fit.correct) # xydatan was chnaged to xydata.
 pred.final0.correct<- rasterFromXYZ(as.data.frame(predictions.fit.correct )[, c("X", "Y", "pred.fit.correct")])
 plot(pred.final0.correct, main=" koala density-warton method/ bias corrected")
+
+#plot all with same legend
+par(mfrow=c(2,2),oma=c(1,1,1,1))
+plot(pred.final0.e, zlim = c(0, .35),main="env only")
+
+plot(pred.final0.correctn, zlim = c(0, .35),main="env_dis")
+
+plot(pred.final0.correct, main="bias corrected")
+plot(lga10.shp, add=TRUE)
+
 #overlay LGA
 extent(pred.final0.correct) <- extent(c(xmin(pred.final0.correct), xmax(pred.final0.correct), ymin(pred.final0.correct), ymax(pred.final0.correct))*1000)
 plot(lga10.shp, add=TRUE)
