@@ -23,20 +23,21 @@ load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala
 mydata <- mydatasighting_cleaned
 mydata <- mydata[c("X","Y","yearnew")]
 
-###combine wildnet data 
-load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//wildnet10_15.RData")
-wildnet <- myd 
-
-
 # Prepare data @km.
 all.locations= subset(mydata,yearnew >1998:2015, select=X:Y)
-all.locations=rbind(all.locations,wildnet)
 # all.locations=all.locations/1000
 # set a minimum distance betweek koalas
 source("Lib_DistEstimatesToItself.r")
 all.locations$disttoitself = Lib_DistEstimatesToItself(all.locations$X, all.locations$Y)
 select.locations = subset(all.locations, all.locations$disttoitself > 100)
 selected.locations = select.locations[,1:2]
+
+###combine wildnet data 
+load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//wildnetdata.RData")
+wildnet <- wildnetdata[c("X","Y")] 
+mydata=rbind(selected.locations, wildnet)
+
+
 #select koalas in the study region
 (b=SpatialPoints(all.locations))#chextent then keep a small buffer area.
 selected.locations2<- subset(selected.locations, X > 401117 & X < 554668)
@@ -44,27 +45,36 @@ selected.locations <- subset(selected.locations2, Y > 6883463 & Y < 7084959) # x
 #points(selected.locations$x, selected.locations$y, pch=15, col="red")
 
 
-#prepare rasters,
-myfullstack.a <- list.files(pattern="\\.tif$")
-myfullstack = scale(stack(myfullstack.a)) 
-#rasters have na valuves. change this to 0.
-myfullstack[is.na(myfullstack[])] <- 0
-large_studyarea.shp <- readShapePoly("large_studyarea.shp")
-myfullstack=mask(myfullstack,large_studyarea.shp)
+#prepare rasters removing na in rivers for better maps
+# myfullstack.a <- list.files(pattern="\\.tif$")
+# myfullstack = scale(stack(myfullstack.a))
+# #rasters have na valuves along brisbane river. change this to 0.
+# myfullstack[is.na(myfullstack[])] <- 0
+# large_studyarea.shp <- readShapePoly("large_studyarea.shp")
+# myfullstack=mask(myfullstack,large_studyarea.shp)
+----------------
 
-# mask=raster("tpo.tif")
-# values(mask)[values(mask) > 0] = 0
-# # plot(mask)
-# # myfullstack<- myfullstack+ mask # now write all these rasters to a new folder with layer name intact.
+## now write all these rasters to a new folder with layer name intact.
 # ####writeRaster((myfullstack+ mask), names((myfullstack+ mask)), bylayer=TRUE, driver='GTIFF')
-
+----------------------
 #myfullstack=crop(myfullstack,lga10.shp)
 # extent(myfullstack) <- extent(c(xmin(myfullstack), xmax(myfullstack), ymin(myfullstack), ymax(myfullstack))/1000)
 habitat.r<- subset(myfullstack, c(1,2,4,6,13,16,23, 24, 25,26,27,28,29,39,40,41))
 habitat.r=crop(habitat.r,b)
+
+
 #plot(habitat.r,1)
 #Quadrature points. stt[is.na(stt)] <- 0
 bigquad <- as.data.frame(habitat.r, xy=TRUE,na.rm=T)
+bigquadxy=bigquad[c(1,2)]
+fpcnew=myfullstack$fpcnew
+buff=extract(fpcnew,bigquadxy, fun=max,buffer=2,df=TRUE)
+#rename this vvariable as buffer
+colnames(buff)[2] <- "fpcnew_buff"
+buff=buff[c(2)]
+bigquad.t=cbind(buff,bigquad)
+bigquad=bigquad.t[c(2:19,1)]
+##### in kilometers.
 bigquad =cbind((bigquad[,1:2]/(1000)),bigquad[c(-1,-2)])
 #loc=SpatialPoints(bigquad)
 #koala dataxy
@@ -93,7 +103,7 @@ xydatan <- bigquad[c(1,2)]
   
 
 #ppm.1 = ~ poly(clay,elev,fpcnew,fpcnew_buff, nitro,sbd,AnnualMeanTemperature,AnnualPrecipitation,tpo,twi,habit1decimal,degree = 1, raw = TRUE)
-ppm.1 = ~ poly(AnnualMeanTemperature,habit1decimal,fpcnew,AnnualPrecipitation,degree = 1, raw = TRUE)
+ppm.1 = ~ poly(AnnualMeanTemperature,habit1decimal,fpcnew_buff,AnnualPrecipitation,degree = 1, raw = TRUE)
 scales = c( 0.5, 1, 2, 4, 8,16,32)
 findres(scales, coord = c("X", "Y"), sp.xy = sp.xy, env.grid = bigquad, formula = ppm.1)
 
@@ -163,7 +173,7 @@ plot(pred.final0.e, zlim = c(0, 5),main="env only")
 
 plot(pred.final0.correctn, zlim = c(0, 5),main="env_dis")
 
-plot(pred.final0.correct, main="bias corrected")
+plot(pred.final0.correct,zlim = c(0, 5), main="bias corrected")
 plot(lga10.shp, add=TRUE)
 #overlay LGA
 plot(lga10.shp, add=TRUE)
@@ -193,15 +203,16 @@ resid.plot = diagnose(ppmFit, which = "smooth", type = "Pearson", main="smoothed
 #family = "area.inter", r = 2
 ### another way to fit area interaction model. can add: criterion = "blockCV", n.blocks = 5, block.size = 10 
 final.fit = ppmlasso(ppmFit,sp.xy, env.grid = bigquad,criterion = "blockCV", n.blocks = 5,
-                      block.size = 10,sp.scale = 1, n.fits = 100, family = "area.inter", r = 2)
+                      block.size = 10,sp.scale = 1, n.fits = 100, family = "area.inter", r = 1)
 diagnose(final.fit, which = "smooth", type = "Pearson")
 pred.interaction = predict(final.fit, newdata=bigquad.2)
 pred.inter.action <- cbind(xydata, pred.interaction)
 pred.ct.inter <- rasterFromXYZ(as.data.frame(pred.inter.action)[, c("X", "Y", "pred.interaction")])
-plot(pred.ct.inter )
+plot(pred.ct.inter)
 diagnose.ppmlasso(final.fit)
 (total_koala=cellStats(pred.ct.inter,sum))
 
+opar
 
 
 
