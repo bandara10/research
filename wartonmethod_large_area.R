@@ -36,19 +36,23 @@ mydata=rbind(selected.locations, wildnet)
 
 ######Step 2: load rasters and crop to my extent of interest######
 myfullstack.a <- list.files(pattern="\\.tif$")
-myfullstack = scale(stack(myfullstack.a))
-
+myfullstack.a = scale(stack(myfullstack.a))
 myextent=c(387900, 553100, 6862400, 7113600) 
 myfullstack=crop(myfullstack, myextent, snap="near") ###crop to my area of interest
-# ########
-# myfullstack.a <- list.files("path\\warton_data_allclimate",pattern="\\.tif$")
-# myfullstack = scale(stack(myfullstack.a))
-
 habitat.r<- subset(myfullstack, c(1,2,4,6,13,16,23, 24, 25,26,27,28,29,39,40,41)) # select my variables
+
+
+
+
+# ########
+myfullstack.b <- list.files("path\\warton_data_allclimate",pattern="\\.tif$")
+myfullstack.b = scale(stack(myfullstack.b))
+myextent=c(387900, 553100, 6862400, 7113600) 
+myfullstack=crop(myfullstack.b, myextent, snap="near")
+
 
 ######Step 3. Create quadrature points and species xy data. Remove NA. Keep xy colomns for preditions and rasterize. ######
 bigquad <- as.data.frame(habitat.r, xy=TRUE,na.rm=T)
-
 xydata <- bigquad[c(1,2)] ### use to get predictions and rasterise.
 
 # ####optional step to create a new varibale. fpc buffer area. 2 km buffer. Then make xy in to km.######
@@ -86,7 +90,43 @@ sp.xy <- as.data.frame(lapply(sp.xy, as.integer))
 
 #Model 1:  Enviromental varibales only
 #ppm.1 = ~ poly(clay,elev,fpcnew,fpcnew_buff, nitro,sbd,AnnualMeanTemperature,AnnualPrecipitation,tpo,twi,habit1decimal,degree = 1, raw = TRUE)
-ppm.1 = ~ poly(clay,sbd,tpo,AnnualMeanTemperature,awc,habit1decimal,habit2decimal,habit3decimal,hpop,lot_density ,fpcnew,AnnualPrecipitation,degree = 1, raw = TRUE)
+ppm.1 = ~ poly(clay
+               ,sbd
+               ,tpo
+               ,AnnualMeanTemperature
+               ,awc,habit1decimal
+               ,habit2decimal
+               ,habit3decimal
+               ,hpop
+               ,lot_density 
+               ,fpcnew
+               ,AnnualPrecipitation
+               ,degree = 1, raw = TRUE)
+
+
+ppm.1 = ~ poly(AnnualMeanTemperature
+               ,awc
+               ,habit1decimal
+               ,habit2decimal
+               ,habit3decimal
+               ,hpop
+               ,lot_density
+               ,Mean_Temperature_of_Coldest_Quarter
+               ,Max_Temperature_of_Warmest_Month
+               ,Mean_Temperature_of_Wettest_Quarter
+               ,Min_Temperature_of_Coldest_Month
+               ,Mean_Temperature_of_Warmest_Quarter
+               ,Precipitation_of_Coldest_Quarter
+               ,Precipitation_of_Driest_Month
+               ,Precipitation_of_Driest_Quarter
+               ,Precipitation_of_Warmest_Quarter
+               ,Precipitation_of_Wettest_Month
+               ,Precipitation_of_Wettest_Quarter
+               ,AnnualPrecipitation
+               ,fpcnew
+               ,degree = 1, raw = TRUE)
+
+
 
 scales = c( 0.5, 1, 2, 4, 8,16,32)
 findres(scales, coord = c("X", "Y"), sp.xy = sp.xy, env.grid = bigquad, formula = ppm.1)#find the spatial resolution best for analysis
@@ -119,10 +159,41 @@ plot(pred.model.1, main=" koala density-warton method/ env only")
 
 #Model :2 Enviromental and distance covariate which are of original scale (bigquad).
 
-ppm.2 = ~ poly(AnnualMeanTemperature,habit1decimal,hpop,lot_density ,fpcnew,AnnualPrecipitation,degree = 2, 
-                  raw = TRUE)+poly(distance_primaryandlink,distance_motorwayandlink,degree = 2, raw = TRUE)
+ppm.2 = ~ poly(AnnualMeanTemperature
+               ,habit1decimal
+               ,hpop
+               ,lot_density 
+               ,fpcnew
+               ,AnnualPrecipitation,degree = 2 
+               ,raw = TRUE)+poly(distance_primaryandlink
+                  ,distance_motorwayandlink
+                  ,degree = 2, raw = TRUE)
+ppm.2 = ~ poly(AnnualMeanTemperature
+               ,awc
+               ,habit1decimal
+               ,habit2decimal
+               ,habit3decimal
+               ,hpop
+               ,lot_density
+               ,Mean_Temperature_of_Coldest_Quarter
+               ,Max_Temperature_of_Warmest_Month
+               ,Mean_Temperature_of_Wettest_Quarter
+               ,Min_Temperature_of_Coldest_Month
+               ,Mean_Temperature_of_Warmest_Quarter
+               ,Precipitation_of_Coldest_Quarter
+               ,Precipitation_of_Driest_Month
+               ,Precipitation_of_Driest_Quarter
+               ,Precipitation_of_Warmest_Quarter
+               ,Precipitation_of_Wettest_Month
+               ,Precipitation_of_Wettest_Quarter
+               ,AnnualPrecipitation
+               ,fpcnew
+               ,degree = 2, raw = TRUE)+poly(distance_primaryandlink
+                                             ,distance_motorwayandlink
+                                             ,degree = 2, raw = TRUE)
 
-ppmFit.2 = ppmlasso(ppm.2, sp.xy = sp.xy, env.grid = bigquad, sp.scale = 1, n.fits = 50)
+
+ppmFit.2 = ppmlasso(ppm.2, sp.xy = sp.xy, env.grid = bigquad, sp.scale = 1, n.fits = 100)
 diagnose.ppmlasso(ppmFit.2)
 #             Check residuals
 resid.plot = diagnose(ppmFit.2, which = "smooth", type = "Pearson", main="smoothed pesrson residulas env model")
@@ -184,11 +255,8 @@ diagnose.ppmlasso(final.fit, which = "x", type = "Pearson", compute.sd = TRUE)
 diagnose.ppmlasso(final.fit, which = "y", type = "Pearson", compute.sd = TRUE)
 resid.plot = diagnose(final.fit, which = "smooth", type = "Pearson", main="smoothed pesrson residulas biascorrected interaction model")
 
-
 ########## For large maps.
 opar <- par() #make a copy of current settings
 #par(opar)          # restore original settings
 mypar <- par(mar=c(1.5,1.5,1.5,1.5), oma=c(0.5,0.5,0.5,0.5))
-
-
 
