@@ -83,8 +83,6 @@ selected.locations = select.locations[,1:2]
 ####################crop raster stack at this stage.
 (b=SpatialPoints(all.locations))
 
-
-
 ##################
 # keep a buffer distance of 2000m as required by this method.
 # get  raster dimentions:441829, 541829, 6901098, 7001098  (xmin, xmax, ymin, ymax)
