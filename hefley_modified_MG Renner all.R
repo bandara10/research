@@ -25,9 +25,7 @@ mydata  <- read.csv("mydatasighting.csv", header = TRUE)
 mydata <- mydata[c("LAT","LNG","X","Y", "CallerName", "HomePhone", "WorkPhone", "Sighting","SexId", "FateId", "LGA" , "monthnew", "yearnew", "Suburb", "PostCode")]
 names(mydata) <- tolower(names(mydata))
 # myND <- subset(mydata, yearnew <= 2011, select = c("x","y"))
-
 # mydata$homephone <- ifelse(is.na(mydata$homephone), mydata$workphone, mydata$homephone)
-
 # Analyse data for 2011:
 id <- mydata$yearnew == 2011
 table(id)
@@ -327,77 +325,114 @@ load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala
 acsel200=mydatasighting_cleaned[c(127,128, 117)]
 acsel210 <- subset(acsel200, yearnew==2011, select = c("X","Y"))
 acsel21v <- acsel210
-#acsel21=SpatialPoints(acsel21v) # over 6629 beyond study area. 
-# get locations over rasters only.
 
-myfullstack.a <- list.files(path="rasters_cropped_renner_methods",pattern="\\.tif$") #Mark_s folder.
+# get raaster and subset
+
+myfullstack.a <- list.files(path="rasters_cropped_renner_methods",pattern="\\.tif$",full.names=TRUE) #Mark_s folder.
 myfullstack = stack(myfullstack.a)
-testlayer <- myfullstack[[1]]
 
-acsel220=cbind(acsel21v,(extract(testlayer,acsel210))) 
+#subset raster
+
+myfullstack.sub <-subset(myfullstack,c(1,45,44,22,29,32,33))
+myfullstack.subdf= as.data.frame(myfullstack.sub) 
+
+# koalas over the study area. create a test lyer, extraxt valuves then remove NA.
+
+testlayer <- myfullstack.sub[[1]]
+
+acsel220=cbind(acsel21v,(extract(testlayer,acsel210)))
+
 # only data from study area. Remove NA rows and keep xy.
+
 acsel220 <- as.data.frame(na.omit(acsel220))
-acsel210 <- acsel220[c(1,2)]
+
+acsel210 <- acsel220[c(1,2)] # get xy
+
 names(acsel210) <- tolower(names(acsel210))
+
 acsel210$Haskoala <- 1
 
 #############
-
-# names(acsel21) <- tolower(names(acsel21))
-# acsel21$Haskoala <- 1
-
-# myND <- subset(mydata, yearnew <= 1999, select = c("x","y"))
-#myfullstack.a <- list.files(pattern="\\.tif$") 
-# myfullstack = stack(myfullstack.a)
-# acsel211 <- acsel21[c(1,2)]
-# X.des=as.matrix(extract(myfullstack,acsel211))
-
-X.dess <- as.matrix(myfullstack)
-X.des <- X.dess[,c(1,49,48,22,29,32,33)]
+              
 
 # get all presence absences. Put all presences and mark them as 1 and all others zero. Then get 0/1.
 # This is the response data in iwlr and dwpr. Generally need presence locations only for other methods but
 #this is approximating ppm with logistic regression. So need 0/1.
-r <- raster(mystack, layer=2)
+
+r <- raster(myfullstack.sub, layer=4)   # get a raster layer
+
 dfull <- as.data.frame(r, xy = TRUE)
+
 dpart = cbind(acsel210,extract(r,acsel210[,1:2]))
+
 dpart <- subset(acsel210, Haskoala==1)
-rspec <- raster(r)
-rspec[] <- 0
+
+#check minimum valuve of raster r
+r
+
+values(r )[values(r) > 0] = 0
+rspec <- r
+
+plot(r)
 cells <- cellFromXY(rspec, as.matrix(dpart[, c("x", "y")]))
+
 rspec[cells] <- dpart$Haskoala
+
 plot(rspec)
 text(dpart$x, dpart$y, lab = dpart$Haskoala)
-Press<- as.data.frame(rspec, xy=TRUE)
+Press<- as.data.frame(rspec, xy=TRUE)   # Has snome NA valuves.
+
+#rename varibael awc
+
+colnames(Press)[3] <- "koala"
+ptest=cbind(Press,myfullstack.subdf)   ### now remove na
+Press= na.omit(ptest)  # same as sp.at=Press ;  Pres=koala
+
+# save this for future use in comapringlikelihood.
+Press.my=Press
+
+# koala presence locations
+
 Pres <- Press[,3]   # this create a vector, Press[c(3)] create a sublist.
 
+### now get design matrix
+
+X.des=Press[,4:10]
+X.des=as.matrix(X.des)  # quadrature points.
+
 ####iwlr
-up.wt = (10^6)^(1 - Pres)
+up.wt = (1.e-6)^(1 - Pres)  # up.wt = (10^6)^(1 - Pres)
 iwlr = glm(Pres ~ X.des, family = binomial(), weights = up.wt)
 
 dd1 <- as.data.frame(X.des) # get coordinates of the design matrix for predictions. similr to warton method.
 pred.iwlr = predict(iwlr, newdata=dd1)
-r <- raster(mystack, layer=2)
+
+#r <- raster(myfullstack.sub, layer=2) 
+
 dfull <- as.data.frame(r, xy = TRUE)
-xydatan <- dfull[c(1,2)]
+
+xydatan <- Press[c(1,2)]
+
 # get coordinates only
+
 pred.iwlr <- cbind(xydatan, pred.iwlr)
 pred.iwlreg <- rasterFromXYZ(as.data.frame(pred.iwlr)[, c("x", "y", "pred.iwlr")])
 plot(pred.iwlreg,asp=1)
 
-
-
 ###DWPR
 p.wt = rep(1.e-6, length(Pres))
-p.wt[Pres == 0] = 10000/sum(Pres == 0)
+p.wt[Pres == 0] = 8310/sum(Pres == 0)
 dwpr = glm(Pres/p.wt ~ X.des, family = poisson(), weights = p.wt)
 
 dd <- as.data.frame(X.des)
 pred.dwpr = predict(dwpr, newdata=dd)
-r <- raster(mystack, layer=2)
+
 dfull <- as.data.frame(r, xy = TRUE)
-xydatan <- dfull[c(1,2)]# 
+
+xydatan <- Press[c(1,2)]
+
 # get coordinates only
+
 pred.dwpr <- cbind(xydatan, pred.dwpr)
 pred.dwpreg <- rasterFromXYZ(as.data.frame(pred.dwpr)[, c("x", "y", "pred.dwpr")])
 plot(pred.dwpreg,asp=1)
@@ -405,55 +440,51 @@ plot(pred.dwpreg,asp=1)
 
 ##############
 #5.3 Assessing the variability in likelihood for different numbers quadrature points.
-# this is the presence data set. extract?.
-#get the full raster data set.
-#projection(myfullstack) <- gsub("units=m", "units=km", projection(myfullstack))
-myfullstack.a <- list.files(path="rasters_cropped_renner_methods",pattern="\\.tif$") #Mark_s folder.
-myfullstack = stack(myfullstack.a)
-extent(myfullstack) <- extent(c(xmin(myfullstack), xmax(myfullstack), ymin(myfullstack), ymax(myfullstack))/1000)
 
-habitrasters<- subset(myfullstack, c(1,49,48,22,29,32,33)) # habitat covariates
+quad=Press.my[c(-3)]
+quad=as.data.frame((quad))
+#quad <- as.data.frame(habitrasters, xy=TRUE) 
+quad <- na.omit(quad)   ### question
+colnames(quad)[1] <- 'X'; colnames(quad)[2] <- 'Y'
 
-#now create all background data.
-bigquad <- as.data.frame(habitrasters, xy=TRUE) # if varying size quadrature points are needed chnage bigquad to quad.
-bigquad <- na.omit(bigquad)   ### question
-colnames(bigquad)[1] <- 'X'; colnames(bigquad)[2] <- 'Y'
-#quad1 <- quad[c(1,2)]
-n.quad = c(50, 100, 200,500, 1000, 1500, 2000,4000, 7000) # number of quadrature poiints.
-quad.inc = sample(1:dim(bigquad)[1], 1000)
-assign(paste("quad.", n.quad[1], sep = ""), bigquad[quad.inc[1:n.quad[1]],])
+#load("Quad100m.RData") #xy and variables.
+
+# another way is to use Pres.my to generate points to generate Quadraatures and use them seperatly for iwlr|dwpr.
+
+n.quad = c(1000, 2000, 5000, 8310) # number of quadrature poiints.
+quad.inc = sample(1:dim(quad)[1], 1000)
+assign(paste("quad.", n.quad[1], sep = ""), quad[quad.inc[1:n.quad[1]],])
 for (i in 2:length(n.quad)){
-  quad.inc = c(quad.inc, sample(setdiff(1:dim(bigquad)[1], quad.inc),
+  quad.inc = c(quad.inc, sample(setdiff(1:dim(quad)[1], quad.inc),
                                 (n.quad[i] - n.quad[i - 1])))
-  assign(paste("quad.", n.quad[i], sep = ""), bigquad[quad.inc[1:n.quad[i]],])
+  assign(paste("quad.", n.quad[i], sep = ""), quad[quad.inc[1:n.quad[i]],])
 }
+
+#3# use them to iwlr and dwpr. 
+
+
 
 #compare the likelihood of PPMs fitted using downweighted Poisson regression:
 #create species data
-#IPP.pre is koala data
-IPP.pre2 <- IPP.pre/1000 # rasters should be in the same extent.same dataset used to Hefley method.
-spdata <- cbind(IPP.pre,(extract(habitrasters, IPP.pre2)))
-colnames(spdata)[1] <- 'X'; colnames(spdata)[2] <- 'Y'
-sp.dat <- as.data.frame(spdata)
-# recheck below code
-# load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//mydatasighting_cleaned.RData")
-# acsel20a = mydatasighting_cleaned[c(127,128, 117)]
-# acsel21a <- subset(acsel20a, yearnew==2011, select = c("X","Y"))
-# acsel21a <- acsel21a/1000
-# spdata <- cbind(acsel21a,(extract(habitrasters, acsel21a)))
-# spdata <- na.omit(spdata)  ####### question  
-# sp.dat <- spdata
-#acsel21=SpatialPoints(acsel21v) # over 6629 beyond study area. 
+#Press has x y koala 0 1  and covariates
+# get koala 1 and select variables excluding koala
+
+sp.dat.1=subset(Press.my, koala==1)
+sp.dat=sp.dat.1[c(-3)]
+colnames(sp.dat)[1] <- 'X'; colnames(sp.dat)[2] <- 'Y'
+
+
+#to compare likelihoods from iwlr , dwpr and ppmlasso. recall : same as sp.at=Press ;  Pres=koala
 sp.dat$Pres = 1
 loglik = rep(NA, length(n.quad))
 
 for (i in 1:length(n.quad)){
   quad = get(paste("quad.", n.quad[i], sep = ""))
-  quad$Pres = 0
+  quad$Pres = 1
   all.dat = na.omit(data.frame(rbind(sp.dat, quad)))
-  X.des = as.matrix(cbind(poly(all.dat$aspect, all.dat$tpo, all.dat$twi,
-                               all.dat$elev, degree = 2, raw = TRUE), poly(sqrt(all.dat$habit2pc),
-                                                                           sqrt(all.dat$hpop), degree = 2), all.dat$lot_density))
+  X.des = as.matrix(cbind(poly(all.dat$AnnualMeanTemperature, all.dat$twi, all.dat$tpo,
+                               all.dat$distance_trunkandlink, all.dat$habit3decimal,  
+                               all.dat$nitro,all.dat$roadk, degree = 2, raw = TRUE)))   
   p.wt = rep(1.e-8, dim(all.dat)[1])
   p.wt[all.dat$Pres == 0] = 10000/n.quad[i]
   z = all.dat$Pres/p.wt
@@ -464,6 +495,11 @@ for (i in 1:length(n.quad)){
 plot(n.quad, loglik, log = "x", type = "o")
 
 #coudn`t get the Renners plot with all lines.
+
+
+
+
+
 #next section starts here.
 
 library(ppmlasso)

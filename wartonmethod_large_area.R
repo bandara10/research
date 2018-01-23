@@ -14,6 +14,7 @@ load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala
 mydata=mydatasighting_cleaned
 mydata <- mydata[c("X","Y","yearnew")]
 all.locations= subset(mydata,yearnew >1998:2015, select=X:Y)
+
 # Select records based on distance
 
 source("Lib_DistEstimatesToItself.r")## set a minimum distance betweek koalas
@@ -21,12 +22,11 @@ all.locations$disttoitself = Lib_DistEstimatesToItself(all.locations$X, all.loca
 select.locations = subset(all.locations, all.locations$disttoitself > 200)
 selected.locations = select.locations[,1:2]
 
-
-
 # Get wildnet data
 
 load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//wildnetdata.RData") # wildnet data.
 
+selected.locations=rbind(selected.locations, wildnetdata)
 
 ######Step 2: load rasters and crop to my extent of interest######
 
@@ -59,7 +59,7 @@ plot(habitat.r,  nc = 4, nr =3)
 
 plot(habitat.r,addfun = fun,  nc =4, nr =3)
 #--------------------------------------------------------------------------------------
-# ######## climate rasters.
+# ######## All climate rasters .
 
 myfullstack.b <- list.files(path="warton_data_allclimate",pattern="\\.tif$",full.names=TRUE)
 myfullstack.b = scale(stack(myfullstack.b))
@@ -102,6 +102,21 @@ bigquad.2$distance_motorwayandlink = min(bigquad.2$distance_motorwayandlink)
 
 ####### Step 5.Koala XY data.
 
+
+#select locations over study area as  dataset is for the full area..
+
+testlayer <- habitat.rr[[1]]   # get a raster
+
+selected.locations.t=cbind(selected.locations,(extract(testlayer,selected.locations))) # locations are NA for outside study area.
+
+# only data from study area. Remove NA rows and keep xy.
+
+selected.locations<- as.data.frame(na.omit(selected.locations.t))
+
+
+
+
+###
 sp.xy = data.frame(selected.locations)
 
 loc=SpatialPoints(sp.xy)
@@ -205,6 +220,7 @@ ppm.2 = ~ poly(clay
                ,raw = TRUE)+poly(distance_primaryandlink
                                 ,distance_motorwayandlink
                                 ,degree = 2, raw = TRUE)
+### raster data set 2
 
 ppm.2 = ~ poly(Annual_Mean_Temperature
                ,Annual_Precipitation
@@ -215,7 +231,7 @@ ppm.2 = ~ poly(Annual_Mean_Temperature
                                              ,degree = 2, raw = TRUE)
 
 
-ppmFit.2 = ppmlasso(ppm.2, sp.xy = sp.xy, env.grid = bigquad, sp.scale = 1, n.fits = 100,interaction = Strauss(r = 2))
+ppmFit.2 = ppmlasso(ppm.2, sp.xy = sp.xy, env.grid = bigquad, sp.scale = 2, n.fits = 100)
 diagnose.ppmlasso(ppmFit.2)
 #             Check residuals
 resid.plot = diagnose(ppmFit.2, which = "smooth", type = "Pearson", main="smoothed pesrson residulas env model")
@@ -292,9 +308,191 @@ opar <- par() #make a copy of current settings
 mypar <- par(mar=c(1.5,1.5,1.5,1.5), oma=c(0.5,0.5,0.5,0.5))
 
 
+######## =====================================############
+#             First run the above code the get objects data to run belwo code.
+#
+#             IWLR |DWP
+#       use same koala and raster dataset prepared above for comparison.
+#
+########======================================#############
+
+# selected.locations = koala data over the study area.
+
+# habitat.rr = my raster subset for the analysis.
+
+acsel210 = selected.locations
+acsel210$Haskoala <- 1
+myfullstack.sub=habitat.rr
+
+selected.loc=SpatialPoints(selected.locations)
+
+#subset raster as df
+
+myfullstack.subdf= as.data.frame(myfullstack.sub) 
+
+
+#############
+
+
+# get all presence absences. Put all presences and mark them as 1 and all others zero. Then get 0/1.
+# This is the response data in iwlr and dwpr. Generally need presence locations only for other methods but
+#this is approximating ppm with logistic regression. So need 0/1.
+
+r <- raster(myfullstack.sub, layer=4)   # get a raster layer
+
+dfull <- as.data.frame(r, xy = TRUE)
+
+dpart = cbind(acsel210,extract(r,acsel210[,1:2]))
+
+dpart <- subset(acsel210, Haskoala==1)
+
+#check minimum valuve of raster r
+r
+
+values(r )[values(r) > -1.414443] = 0
+rspec <- r
+
+plot(r)
+cells <- cellFromXY(rspec, as.matrix(dpart[, c("X", "Y")]))
+
+rspec[cells] <- dpart$Haskoala
+
+plot(rspec)
+text(dpart$X, dpart$Y, lab = dpart$Haskoala)
+Press<- as.data.frame(rspec, xy=TRUE)   # Has snome NA valuves.
+
+#rename varibael awc
+
+colnames(Press)[3] <- "koala"
+ptest=cbind(Press,myfullstack.subdf)   ### now remove na
+Press= na.omit(ptest)  # same as sp.at=Press ;  Pres=koala
+
+# save this for future use in comapringlikelihood.
+Press.my=Press
+
+# koala presence locations
+
+Pres <- Press[,3]   # this create a vector, Press[c(3)] create a sublist.
+
+### now get design matrix
+
+X.des=Press[,4:10]
+X.des=as.matrix(X.des)  # quadrature points.
+
+####      iwlr      #######==============================
+         
+
+
+up.wt = (1.e6)^(1 - Pres)  # up.wt = (10^6)^(1 - Pres)
+iwlr = glm(Pres ~ X.des, family = binomial(), weights = up.wt)
+
+## check coefficents
+iwlr
+# 
+
+dd1 <- as.data.frame(X.des) # get coordinates of the design matrix for predictions. similr to warton method.
+pred.iwlr = predict(iwlr, newdata=dd1)
+
+#r <- raster(myfullstack.sub, layer=2) 
+
+dfull <- as.data.frame(r, xy = TRUE)
+
+xydatan <- Press[c(1,2)]
+
+# get coordinates only
+
+pred.iwlr <- cbind(xydatan, pred.iwlr)
+pred.iwlreg <- rasterFromXYZ(as.data.frame(pred.iwlr)[, c("x", "y", "pred.iwlr")])
+plot(pred.iwlreg,asp=1)
+plot(selected.loc, add=TRUE)
+###       DWPR     ######===================================
+
+p.wt = rep(1.e-6, length(Pres))
+p.wt[Pres == 0] = 8310/sum(Pres == 0)
+dwpr = glm(Pres/p.wt ~ X.des, family = poisson(), weights = p.wt)
+
+# check coefficents 
+dwpr
+#
+
+dd <- as.data.frame(X.des)
+pred.dwpr = predict(dwpr, newdata=dd)
+
+dfull <- as.data.frame(r, xy = TRUE)
+
+xydatan <- Press[c(1,2)]
+
+# get coordinates only
+
+pred.dwpr <- cbind(xydatan, pred.dwpr)
+pred.dwpreg <- rasterFromXYZ(as.data.frame(pred.dwpr)[, c("x", "y", "pred.dwpr")])
+plot(pred.dwpreg,asp=1)
+
+# plot lcoations over the map
+plot(selected.loc, add=TRUE)
+
+############## STOP here ###############
+
+# 5.3 Assessing the variability in likelihood for different numbers quadrature points.
+# to generate different sie quadrature points.
+
+quad=Press.my[c(-3)]
+quad=as.data.frame((quad))
+#quad <- as.data.frame(habitrasters, xy=TRUE) 
+quad <- na.omit(quad)   ### question
+colnames(quad)[1] <- 'X'; colnames(quad)[2] <- 'Y'
+
+#load("Quad100m.RData") #xy and variables.
+
+# another way is to use Pres.my to generate points to generate Quadraatures and use them seperatly for iwlr|dwpr.
+
+n.quad = c(1000, 2000, 5000, 8310) # number of quadrature poiints.
+quad.inc = sample(1:dim(quad)[1], 1000)
+assign(paste("quad.", n.quad[1], sep = ""), quad[quad.inc[1:n.quad[1]],])
+for (i in 2:length(n.quad)){
+  quad.inc = c(quad.inc, sample(setdiff(1:dim(quad)[1], quad.inc),
+                                (n.quad[i] - n.quad[i - 1])))
+  assign(paste("quad.", n.quad[i], sep = ""), quad[quad.inc[1:n.quad[i]],])
+}
+
+#3# use them to iwlr and dwpr. 
 
 
 
+#compare the likelihood of PPMs fitted using downweighted Poisson regression:
+#create species data
+#Press has x y koala 0 1  and covariates
+# get koala 1 and select variables excluding koala
+
+sp.dat.1=subset(Press.my, koala==1)
+sp.dat=sp.dat.1[c(-3)]
+colnames(sp.dat)[1] <- 'X'; colnames(sp.dat)[2] <- 'Y'
+
+
+#to compare likelihoods from iwlr , dwpr and ppmlasso. recall : same as sp.at=Press ;  Pres=koala
+
+# remember to chnage variable names.
+
+sp.dat$Pres = 1
+loglik = rep(NA, length(n.quad))
+
+for (i in 1:length(n.quad)){
+  quad = get(paste("quad.", n.quad[i], sep = ""))
+  quad$Pres = 1
+  all.dat = na.omit(data.frame(rbind(sp.dat, quad)))
+  X.des = as.matrix(cbind(poly(all.dat$AnnualMeanTemperature, all.dat$twi, all.dat$tpo,
+                               all.dat$distance_trunkandlink, all.dat$habit3decimal,  
+                               all.dat$nitro,all.dat$roadk, degree = 2, raw = TRUE)))   
+  p.wt = rep(1.e-8, dim(all.dat)[1])
+  p.wt[all.dat$Pres == 0] = 10000/n.quad[i]
+  z = all.dat$Pres/p.wt
+  dwpr = glm(z ~ X.des, family = poisson(), weights = p.wt)
+  mu = dwpr$fitted
+  loglik[i] = sum(p.wt*(z*log(mu) - mu))
+}
+plot(n.quad, loglik, log = "x", type = "o")
+
+#coudn`t get the Renners plot with all lines.
 
 
 
