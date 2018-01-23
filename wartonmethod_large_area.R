@@ -11,10 +11,9 @@ setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_syn\\w
 ##########Step 1: load koala data frm tow sources. BoalaBASE and Wildnet#####
 
 load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//mydatasighting_cleaned.RData")
-mydata <- mydatasighting_cleaned
+mydata=mydatasighting_cleaned
 mydata <- mydata[c("X","Y","yearnew")]
 all.locations= subset(mydata,yearnew >1998:2015, select=X:Y)
-
 # Select records based on distance
 
 source("Lib_DistEstimatesToItself.r")## set a minimum distance betweek koalas
@@ -22,28 +21,16 @@ all.locations$disttoitself = Lib_DistEstimatesToItself(all.locations$X, all.loca
 select.locations = subset(all.locations, all.locations$disttoitself > 200)
 selected.locations = select.locations[,1:2]
 
-#remove duplicate
 
-selected.locations=selected.locations[!duplicated(selected.locations$X), ]
-duplicated(selected.locations)
-selected.locations[duplicated(selected.locations)]
+
 # Get wildnet data
 
 load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//wildnetdata.RData") # wildnet data.
-wildnet <- wildnetdata[c("X","Y")] 
 
-#remove duplicate
-
-wildnet=wildnet[!duplicated(wildnet$X), ]
-duplicated(wildnet)
-wildnet[duplicated(wildnet)]
-
-
-mydata=rbind(selected.locations, wildnet)
 
 ######Step 2: load rasters and crop to my extent of interest######
 
-myfullstack.a <- list.files(pattern="\\.tif$")
+myfullstack.a <- list.files(pattern="\\.tif$",full.names=TRUE)
 myfullstack.a = scale(stack(myfullstack.a))
 
 #select my extent / myextent=drawExtent()
@@ -58,19 +45,34 @@ selected.locations=gridSample(selected.locations, habitat.r, n = 15)
 loc=SpatialPoints((selected.locations))
 plot(loc, add=TRUE)
 
+#plot the stack and data for visualization.
+points=SpatialPoints(select.locations)
+fun <- function() {
+  plot(LGA.shp, add = TRUE, col = "red", pch = 1)
+}
 
+#plot rasters only
+
+plot(habitat.r,  nc = 4, nr =3)
+
+# plot raster and overlay koala locations
+
+plot(habitat.r,addfun = fun,  nc =4, nr =3)
 #--------------------------------------------------------------------------------------
 # ######## climate rasters.
 
-myfullstack.b <- list.files("path\\warton_data_allclimate",pattern="\\.tif$")
+myfullstack.b <- list.files(path="warton_data_allclimate",pattern="\\.tif$",full.names=TRUE)
 myfullstack.b = scale(stack(myfullstack.b))
 myextent=c(387900, 553100, 6862400, 7113600) 
-myfullstack=crop(myfullstack.b, myextent, snap="near")
+habitat.rr=crop(myfullstack.b, myextent, snap="near")
+
+habitat.rr<- subset(habitat.rr, c(1,2,15,18,26,33,39)) # select my variables
+
 #------------------------------------------------------------------------------------------
 
 ######Step 3. Create quadrature points and species xy data. Remove NA. Keep xy colomns for preditions and rasterize. ######
 
-bigquad <- as.data.frame(habitat.r, xy=TRUE,na.rm=TRUE)
+bigquad <- as.data.frame(habitat.rr, xy=TRUE,na.rm=TRUE)
 xydata <- bigquad[c(1,2)] ### use to get predictions and rasterise.
 
 # ####optional step to create a new varibale. fpc buffer area. 2 km buffer. Then make xy in to km.######
@@ -101,15 +103,18 @@ bigquad.2$distance_motorwayandlink = min(bigquad.2$distance_motorwayandlink)
 ####### Step 5.Koala XY data.
 
 sp.xy = data.frame(selected.locations)
+
+loc=SpatialPoints(sp.xy)
+
 sp.xy=(sp.xy[,1:2]/(1000))
 sp.xy <- as.data.frame(lapply(sp.xy, as.integer))
 
 ##Check kerneal smoothing maps with spatstat. my.owin=as.owin(my.ppp)
-
-my.ppp=as.ppp(loc)
+loca=SpatialPoints(sp.xy)
+my.ppp=as.ppp(loca)
 my.density=density(my.ppp, edge=TRUE) # sigma=1, 
 plot(my.density)
-plot(loc, add=TRUE)
+plot(loca, add=TRUE)
 # plot  LGA 10 map.
 LGA.shp <- readShapePoly("LGA10new.shp")
 plot(LGA.shp, add=TRUE)
@@ -125,7 +130,8 @@ ppm.1 = ~ poly(clay
                ,sbd
                ,tpo
                ,AnnualMeanTemperature
-               ,awc,habit1decimal
+               ,awc
+               ,habit1decimal
                ,habit2decimal
                ,habit3decimal
                ,fpcnew
@@ -133,25 +139,10 @@ ppm.1 = ~ poly(clay
                ,degree = 2, raw = TRUE)
 
 
-ppm.1 = ~ poly(AnnualMeanTemperature
-               ,awc
-               ,habit1decimal
-               ,habit2decimal
-               ,habit3decimal
-               ,hpop
-               ,lot_density
-               ,Mean_Temperature_of_Coldest_Quarter
+ppm.1 = ~ poly(Annual_Mean_Temperature
+               ,Annual_Precipitation
                ,Max_Temperature_of_Warmest_Month
-               ,Mean_Temperature_of_Wettest_Quarter
                ,Min_Temperature_of_Coldest_Month
-               ,Mean_Temperature_of_Warmest_Quarter
-               ,Precipitation_of_Coldest_Quarter
-               ,Precipitation_of_Driest_Month
-               ,Precipitation_of_Driest_Quarter
-               ,Precipitation_of_Warmest_Quarter
-               ,Precipitation_of_Wettest_Month
-               ,Precipitation_of_Wettest_Quarter
-               ,AnnualPrecipitation
                ,fpcnew
                ,degree = 2, raw = TRUE)
 
@@ -160,18 +151,21 @@ ppm.1 = ~ poly(AnnualMeanTemperature
 scales = c( 0.5, 1, 2, 4, 8,16,32)
 findres(scales, coord = c("X", "Y"), sp.xy = sp.xy, env.grid = bigquad, formula = ppm.1)#find the spatial resolution best for analysis
 
-ppmFit.1 = ppmlasso(ppm.1, sp.xy = sp.xy, env.grid = bigquad, sp.scale = 1, criterion = "nlgcv", n.fits = 100)#Fitting a regularisation path of point process models.#a LASSO penalty that optimises non-linear GCV
+ppmFit.1 = ppmlasso(ppm.1, sp.xy = sp.xy, env.grid = bigquad, sp.scale = 1, 
+                    criterion = "nlgcv", n.fits = 100)#Fitting a regularisation path of point process models.#a LASSO penalty that optimises non-linear GCV
 
 ppmFit.1$beta  
 
-ppmFit.1 = ppmlasso(ppm.1, sp.xy = sp.xy, env.grid = bigquad,criterion = "blockCV", n.blocks = 50,block.size = 50, sp.scale = 1, n.fits = 100)
+ppmFit.1 = ppmlasso(ppm.1, sp.xy = sp.xy, env.grid = bigquad,
+                    criterion = "blockCV", n.blocks = 50,block.size = 50, sp.scale = 1, n.fits = 100)
 ppmFit.1$beta
 
 #use interaction terms; family = "area.inter", r = 1    |     interaction = Strauss(r = 6)
 
 
-ppmFit.1 = ppmlasso(ppm.1, sp.xy = sp.xy, env.grid = bigquad,criterion = "blockCV", n.blocks = 5,
-                    block.size = 10, sp.scale = 1, n.fits = 50, family = "area.inter", r = 1)
+ppmFit.1 = ppmlasso(ppm.1, sp.xy = sp.xy, env.grid = bigquad,
+                    criterion = "blockCV", n.blocks = 5,
+                    block.size = 10, sp.scale = 1, n.fits = 50, family = "area.inter", r = .1)
 ppmFit.1$beta
 
 #Check residuals]
@@ -198,41 +192,30 @@ plot(loc, add=TRUE)
 
 #Model :2 Enviromental and distance covariate which are of original scale (bigquad).
 
-ppm.2 = ~ poly(AnnualMeanTemperature
-               ,habit1decimal
-               ,hpop
-               ,lot_density 
-               ,fpcnew
-               ,AnnualPrecipitation,degree = 2 
-               ,raw = TRUE)+poly(distance_primaryandlink
-                  ,distance_motorwayandlink
-                  ,degree = 2, raw = TRUE)
-ppm.2 = ~ poly(AnnualMeanTemperature
+ppm.2 = ~ poly(clay
+               ,sbd
+               ,tpo
+               ,AnnualMeanTemperature
                ,awc
                ,habit1decimal
                ,habit2decimal
                ,habit3decimal
-               ,hpop
-               ,lot_density
-               ,Mean_Temperature_of_Coldest_Quarter
+               ,fpcnew
+               ,AnnualPrecipitation,degree = 2 
+               ,raw = TRUE)+poly(distance_primaryandlink
+                                ,distance_motorwayandlink
+                                ,degree = 2, raw = TRUE)
+
+ppm.2 = ~ poly(Annual_Mean_Temperature
+               ,Annual_Precipitation
                ,Max_Temperature_of_Warmest_Month
-               ,Mean_Temperature_of_Wettest_Quarter
-               ,Min_Temperature_of_Coldest_Month
-               ,Mean_Temperature_of_Warmest_Quarter
-               ,Precipitation_of_Coldest_Quarter
-               ,Precipitation_of_Driest_Month
-               ,Precipitation_of_Driest_Quarter
-               ,Precipitation_of_Warmest_Quarter
-               ,Precipitation_of_Wettest_Month
-               ,Precipitation_of_Wettest_Quarter
-               ,AnnualPrecipitation
                ,fpcnew
                ,degree = 2, raw = TRUE)+poly(distance_primaryandlink
                                              ,distance_motorwayandlink
                                              ,degree = 2, raw = TRUE)
 
 
-ppmFit.2 = ppmlasso(ppm.2, sp.xy = sp.xy, env.grid = bigquad, sp.scale = 1, n.fits = 100)
+ppmFit.2 = ppmlasso(ppm.2, sp.xy = sp.xy, env.grid = bigquad, sp.scale = 1, n.fits = 100,interaction = Strauss(r = 2))
 diagnose.ppmlasso(ppmFit.2)
 #             Check residuals
 resid.plot = diagnose(ppmFit.2, which = "smooth", type = "Pearson", main="smoothed pesrson residulas env model")
@@ -263,9 +246,9 @@ plot(pred.model.crt , main=" koala density-warton method/ bias corrected")
 #####step 6.#plot all with same legend######
 
 par(mfrow=c(2,2),oma=c(1,1,1,1))
-plot(pred.model.1, zlim = c(0, 5),main="env only")
-plot(pred.model.2, zlim = c(0, 5),main="env_dis")
-plot(pred.model.crt, zlim = c(0, 5), main="bias corrected")
+plot(pred.model.1, zlim = c(0, 7),main="env only")
+plot(pred.model.2, zlim = c(0, 7),main="env_dis")
+plot(pred.model.crt, zlim = c(0, 7), main="bias corrected")
 LGA.shp <- readShapePoly("LGA10new.shp")
 plot(LGA.shp, add=TRUE)
 
@@ -307,4 +290,13 @@ opar <- par() #make a copy of current settings
 #par(opar)          # restore original settings
 
 mypar <- par(mar=c(1.5,1.5,1.5,1.5), oma=c(0.5,0.5,0.5,0.5))
+
+
+
+
+
+
+
+
+
 
