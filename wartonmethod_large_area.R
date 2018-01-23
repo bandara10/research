@@ -838,7 +838,6 @@ qdata(c=(.025),bootstrap.sample[,5])#ravi:removed after .975 after .025, add c=
 
 
 
-
 ######   Drorazio method  ##############
 
           #use same data 
