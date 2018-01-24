@@ -3,7 +3,7 @@ library(spatialkernel); library(splancs); library(RColorBrewer); library(dismo);
 library(lmtest);library(spatial.tools);library(VGAM);library(mosaic);library(faraway);library(gstat)  #
 library(ncf);library(foreign);library(nlme)   ;library(MASS);library(ROCR);library(vcd)
 library(RColorBrewer);library(classInt);library(ppmlasso);library(usdm) ; library(ncf); library(epicalc)
-
+library(optiRum)
 ##############
 
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_syn\\warton_data")
@@ -14,20 +14,26 @@ setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_syn\\w
 load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//mydatasighting_cleaned.RData")
 mydata=mydatasighting_cleaned
 mydata <- mydata[c("X","Y","yearnew")]
-all.locations= subset(mydata,yearnew >1998:2015, select=X:Y)
+
+# Get wildnet data
+
+load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//wildnetdata_old.RData") # wildnet data.
+mydata2 <- wildnetdata[c("X","Y","yearnew")]
+
+mydata3=rbind(mydata, mydata2)
+
+all.locations= subset(mydata3,yearnew >1998, select=X:Y)
+
 
 # Select records based on distance
 
-source("Lib_DistEstimatesToItself.r")## set a minimum distance betweek koalas
+source("Lib_DistEstimatesToItself.r")## set a minimum distance between koalas
 all.locations$disttoitself = Lib_DistEstimatesToItself(all.locations$X, all.locations$Y)
 select.locations = subset(all.locations, all.locations$disttoitself > 200)
 selected.locations = select.locations[,1:2]
 
-# Get wildnet data
 
-load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//wildnetdata.RData") # wildnet data.
 
-selected.locations=rbind(selected.locations, wildnetdata)
 
 ######Step 2: load rasters and crop to my extent of interest######
 
@@ -40,6 +46,14 @@ myextent=c(387900, 553100, 6862400, 7113600)
 myfullstack=crop(myfullstack.a, myextent, snap="near") ###crop to my area of interest
 habitat.r<- subset(myfullstack, c(1,2,4,6,13,16,23, 24, 25,26,27,28,29,39,40,41)) # select my variables
 
+##### select uncorrelated variables and save as uncorrelated.r
+
+# myvif=vifstep(habitat.r, th = 3)
+# uncorrelated.r=exclude(habitat.r, myvif)
+# plot(uncorrelated.r)
+# 
+# habitat.r=uncorrelated.r
+
 #select koalas from grids
 
 selected.locations=gridSample(selected.locations, habitat.r, n = 100)
@@ -49,21 +63,22 @@ plot(loc, add=TRUE)
 #plot the stack and data for visualization.
 points=SpatialPoints(select.locations)
 fun <- function() {
-  plot(LGA.shp, add = TRUE, col = "red", pch = 1)
+  plot(points, add = TRUE, col = "red", pch = 1)
 }
 
 #plot rasters only##
 
-plot(habitat.r,  nc = 4, nr =3)
+plot(habitat.rr,  nc = 4, nr =3)
 
 # plot raster and overlay koala locations
 
-plot(habitat.r,addfun = fun,  nc =4, nr =3)
+plot(habitat.rr,addfun = fun,  nc =4, nr =3)
 #--------------------------------------------------------------------------------------
 # ######## All climate rasters .
 
 myfullstack.b <- list.files(path="warton_data_allclimate",pattern="\\.tif$",full.names=TRUE)
 myfullstack.b = scale(stack(myfullstack.b))
+plot(myfullstack.b)
 myextent=c(387900, 553100, 6862400, 7113600) 
 habitat.rr=crop(myfullstack.b, myextent, snap="near")
 
@@ -236,7 +251,7 @@ ppm.2 = ~ poly(Annual_Mean_Temperature
                                              ,degree = 2, raw = TRUE)
 
 
-ppmFit.2 = ppmlasso(ppm.2, sp.xy = sp.xy, env.grid = bigquad, sp.scale = 2, n.fits = 100)
+ppmFit.2 = ppmlasso(ppm.2, sp.xy = sp.xy, env.grid = bigquad, sp.scale = 1, n.fits = 100)
 diagnose.ppmlasso(ppmFit.2)
 #             Check residuals
 resid.plot = diagnose(ppmFit.2, which = "smooth", type = "Pearson", main="smoothed pesrson residulas env model")
@@ -503,7 +518,7 @@ plot(n.quad, loglik, log = "x", type = "o")
 
 #######   Hefley METHOD                              #########
 #                                                     #
-#            Use same dataset                         #
+#            Use same dataset  ru IWLR |DWPR firt to get data. #
 #              Press.g
 #               habitat.rr from climatic data folder. ###
 
@@ -523,7 +538,7 @@ plot(n.quad, loglik, log = "x", type = "o")
 
 # r is an empty raster creaated above.
 
-group.r=rasterize(selected.locations, r) # 
+group.r=rasterize(selected.locations, r) #  rcomes from line 356.
 
 plot(group.r)
 
@@ -583,7 +598,7 @@ IPP.ignored=glm(presence~Annual_Mean_Temperature
 
 summary(IPP.ignored)
 detecPress.gk=subset(Detection.data, select=c(-2))
-Press.gk=as.data.frame(Press.gk)
+Press.gk=as.data.frame(detecPress.gk)
 
 # # ROC curve & GOF metrics
 # myPred = prediction(predict(Detection.model, type = "response"), Press.gk$koala)
@@ -603,6 +618,19 @@ Detection.model=glm(presence~ distance_primaryandlink
                     , data=Detection.data)
 
 unclass(summary(Detection.model))
+
+#Plot models.
+
+myPred0 = predict(habitat.rr, Detection.model, type = "response")
+#  myPred = predict(myStack, myGLM, type = "response")
+
+# plot the prediction
+plot(myPred0, xlab = "x-coord (UTM45)", ylab= "y-coord (UTM45)",main=" detection koala")
+
+
+
+
+
 
 ###################### Improve the model autocorrelation check and residual approach.#####
 #  got to step 4 if want to ignore this section
@@ -626,9 +654,10 @@ abline(h=0)
 #############################################################
 myStack = stack(habitat.rr)
 # Plot the predictors
-plot(myStack)
+#plot(myStack)
 # Creates a mask layer
-myMask = myStack$Annual_Precipitation
+myMask = myStack$Annual_Precipitation >=-2
+
 plot(myMask)
 # Map predictions
 AR1 = myMask * 0
@@ -642,22 +671,21 @@ names(myARStack)[nlayers(myARStack)]="AR1"
 #############################################################
 # Build the standard GLM object
 source("autoregresive2.r")
-Detection.data$AR1 = myLib.AutoRegressiveMean(residuals(Detection.model), Detection.data$x, Detection.data$y, 15000)
-
+Detection.data$AR1 = myLib.AutoRegressiveMean(residuals(Detection.model), Detection.data$x, Detection.data$y, 18000)
+AR1
 
 Detection.model.2=glm(presence~ distance_primaryandlink
                       +distance_motorwayandlink
                       + fpcnew
-                      + AR1
-                      ,family= "binomial"
+                       +AR1 ,family= "binomial"
                       ,data=Detection.data)
 summary(Detection.model.2)
 
 
-plot(Detection.model.2)
+#plot(Detection.model.2)
 
 Detection.data$R1 = residuals(Detection.model.2)
-Corr <- correlog(Detection.data$x, Detection.data$y, Detection.data$R1,na.rm=T, increment=10000, resamp=0, latlon = F)              
+Corr <- correlog(Detection.data$x, Detection.data$y, Detection.data$R1,na.rm=T, increment=18000, resamp=0, latlon = F)              
 #Corr <- correlog(myFD$x, myFD$y, myFD$R1,na.rm=T, increment=10000, resamp=0, latlon = F)
 #mySigVec = ifelse(Corr$p<0.01,1,0)  
 
@@ -695,11 +723,12 @@ AR1@file@name = "AR1"
 myARStack = addLayer(myStack, AR1)
 names(myARStack)[nlayers(myARStack)]="AR1"
 
-myPred = predict(myARStack, Detection.model.2, type = "response")
+
+myPred2 = predict(myARStack, Detection.model.2, type = "response")
 #  myPred = predict(myStack, myGLM, type = "response")
 
 # plot the prediction
-plot(myPred, xlab = "x-coord (UTM45)", ylab= "y-coord (UTM45)",main=" detection koala")
+plot(myPred2, xlab = "x-coord (UTM45)", ylab= "y-coord (UTM45)",main=" detection koala")
 
 # ROC curve & GOF metrics
 myPred = prediction(predict(Detection.model.2, type = "response"), Detection.data$presence)
@@ -708,12 +737,14 @@ plot(perf, colorize = T)
 myPredPerfs = myLib.EstimateLogisticGOF(predict(Detection.model.2, type = "response"), Detection.data$presence, 0.5)
 myPredPerfs
 
-
+########
 
 #####################
-
+# three  additional varibales, res, AR, R1 created for Detection model.2.  hence, they area not available in IPPdata, ZTGLM.data...
+# t=extract(myPred2, ZTGLM.data$x &ZTGLM.data$y)
+# To=ilogit(t)
 #####Step 4: Estimate the probability of detection for each presence-only location.####
-p.det=ilogit(predict(Detection.model.2,new=ZTGLM.data))# chnaged myD to ZTGLM.data length =461. 3 X=vector.boot 
+p.det=ilogit(predict(Detection.model,new=ZTGLM.data))# chnaged myD to ZTGLM.data length =461. 3 X=vector.boot 
 
 # set very small valuves to 0.1
 p.det <- ifelse(p.det<0.1,0.1,p.det)
@@ -746,7 +777,7 @@ ZTGLM.corrected=vglm(presence~ distance_primaryandlink
                     ,weights=1/p.det,family="pospoisson",data=ZTGLM.data)
 summary(ZTGLM.corrected)
 
-# step 7:  Detion model Map predictions
+# step 7:  Detecion model Map predictions # 
 
 myPred = predict(habitat.rr, Detection.model, type = "response")
 plot(myPred, xlab = "x", ylab= "y",main="detection model")
@@ -758,11 +789,8 @@ plot(myPred2, xlab = "x", ylab= "y",main=" IPP model |detection ignored- number 
 
 #        IPP corrected model Map predictions
 
-myPred2 = predict(habitat.rr, IPP.corrected, type = "response")
-plot(myPred2, xlab = "x", ylab= "y",main=" IPP model |detection considered- number of koalas")
-
-myPred3 = predict(habitat.rr, ZTGLM.corrected, type = "response")
-plot(myPred3,  main="ZTGLM-group size koalas in a grid model")
+myPred2.1 = predict(habitat.rr, IPP.corrected, type = "response")
+plot(myPred2.1, xlab = "x", ylab= "y",main=" IPP model |detection considered- number of koalas")
 
 
 #	Calculating mean, standard deviation and 95%, equal-tailed confidence intervals
@@ -843,6 +871,264 @@ qdata(c=(.025),bootstrap.sample[,5])#ravi:removed after .975 after .025, add c=
           #use same data 
 ####  ####  ####    ###  ####  ####  ####    ###
 
+source("functions2.r")
+
+## recall rasters being used. "habitat.rr"
+## we read rasters directly from the folder.
+
+x.files=c( "Annual_Mean_Temperature.tif"
+            ,"Annual_Precipitation.tif"
+            ,"fpcnew.tif"
+            ,"clay.tif"
+            ,"elev.tif"
+            ,"habit1decimal.tif"
+            )
+d <- stack(x.files)
+
+s.occupancy <- scale(d,scale=TRUE,center = TRUE)
+plot(s.occupancy)
+
+
+w.files=c("fpcnew.tif") 
+
+dd <- stack(w.files)
+
+s.detection <- scale(dd, scale=TRUE,center = TRUE)
+plot(s.detection)
+
+## we use same datasets and criteria. import data and select in the same manner we did for previous analysis.
+
+load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//mydatasighting_cleaned.RData")
+mydata <- mydatasighting_cleaned
+mydata <- mydata[c("X","Y","yearnew")]
+names(mydata) <- tolower(names(mydata))
+
+#combine with wildnet data
+load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//wildnetdata_old.RData")
+wildnet <- wildnetdata[c("X","Y", "yearnew")] 
+names(wildnet) <- tolower(names(wildnet))
+all.loc= rbind(mydata, wildnet) 
+(b=SpatialPoints(all.loc))
+
+#crop base on extent of koala locations.
+s.occupancy=crop(s.occupancy,b)
+s.detection= crop(s.detection,b)
+
+plot(s.occupancy)
+
+# Analyse data 
+all.locations= subset(all.loc,yearnew >2000, select=x:y) #2005 originally
+plot(all.loc)
+# set a minimum distance betweek koalas
+source("Lib_DistEstimatesToItself.r")
+all.locations$disttoitself = Lib_DistEstimatesToItself(all.locations$x, all.locations$y)
+select.locations = subset(all.locations, all.locations$disttoitself > 4000)
+selected.locations = select.locations[,1:2]
+
+
+####################crop raster stack at this stage.
+(b=SpatialPoints(all.locations))
+
+##################
+# keep a buffer distance of 2000m as required by this method.
+# get  raster dimentions:441829, 541829, 6901098, 7001098  (xmin, xmax, ymin, ymax)
+
+# selected.locations2<- subset(selected.locations, x > 443829 & x < 539829)
+# selected.locations <- subset(selected.locations2, y > 6903098 & y < 6999098) # xy only within the study area.
+pb=selected.locations
+
+# kolaxy2 <- subset(kolaxyT, X > 442000 & X < 540000)
+# pb <- subset(kolaxy2, Y > 6902000 & Y < 7000000) # xy within the area only.
+# pb <- as.matrix(pb)
+pb.loc=SpatialPoints(pb) # over 6629 beyond study area. 
+# get locations over rasters only.
+pb.occupancy=extract(s.occupancy,pb.loc) 
+pb.detection=extract(s.detection,pb.loc) 
+# only data from study area.
+is.complete.pb=complete.cases(pb.detection)&complete.cases(pb.occupancy)
+pb.detection=pb.detection[is.complete.pb,] #3663#  distance covariates extract from rasters. only one here
+pb.occupancy=pb.occupancy[is.complete.pb,]#3663# env covariates extract from  raster
+# upto here basically covariate extraction is done for presence data for occupancy/abunace and detection., .
+
+print("allocating background")
+#turning rasters into tables - background, adding column of ones
+X.back = cbind(rep(1, ncell(s.occupancy)), values(s.occupancy))
+W.back = cbind(rep(1, ncell(s.detection)), values(s.detection)) #s.detection is raster stack.
+
+# remove all NA values
+
+tmp=X.back[complete.cases(X.back)&complete.cases(W.back),]
+W.back=W.back[complete.cases(X.back)&complete.cases(W.back),]
+X.back=tmp
+
+print("specifying area ")
+#area in squared km ??????????????????????? -----------------------------------
+area.back = rep((xres(s.occupancy)/1000)*(yres(s.occupancy)/1000), nrow(X.back))# each cell
+
+
+s.area=area.back*nrow(X.back) #study area
+
+
+# # adding column of ones - po locations
+# X.po=cbind(rep(1, nrow(as.matrix(pb.occupancy))), pb.occupancy) # v1 and covariate valuves
+# W.po=cbind(rep(1, nrow(as.matrix(pb.detection))), pb.detection) # v1, probability of detection.
+
+# #add a column of ones to the PA covariat
+# #y.so # matrix of presences and absences (when the species was and wasn't present)
+# J.so=ncol(y.so)
+# so.occupancy <- as.matrix(so.occupancy) # added by me
+# X.so=cbind(rep(1, nrow(as.matrix(so.occupancy))), so.occupancy)
+# #X.so$v1 <- X.so$`rep(1, nrow(as.matrix(so.occupancy)))
+# # X.so <- X.so[c(-1)]
+# # X.so <- X.so[c(13, 1:12)]
+# #X.so <- as.matrix(X.so)
+# W.so = array(dim=c(nrow(as.matrix(pb.detection)), J.so, 1))
+# W.so[,,1] = 1
+# W.so[,,2] = pb.detection# if it changes
+# W.so[,,3] = pb.detection2# if it changes
+
+
+
+# # Checking whether occupancy and detection rasters have the same resolution -----
+# if(sum(res(s.occupancy)!=res(s.detection)))
+#   stop("Occupancy and detection raster layers have different resolution")
+# 
+# if(ncell(s.occupancy)!=ncell(s.detection))
+#   stop("Occupancy and detection have different number of cells")
+# 
+# 
+# # Plotting covariates that drive occupancy and detection in PO
+# ppi = 300
+# png('occupancy-covariates.png', width=9*ppi, height=3*ppi, res=ppi)
+# plot(s.occupancy)
+# dev.off()
+# 
+# png('PO-detection -covariates.png', width=9*ppi, height=3*ppi, res=ppi)
+# plot(s.detection)
+# dev.off()
+# adding column of ones - po locations # Is this pb.detection?????
+X.pb=cbind(rep(1, nrow(as.matrix(pb.occupancy))), pb.occupancy) # pb.occupancy is all presence locations. 
+W.pb=cbind(rep(1, nrow(as.matrix(pb.detection))), pb.detection)
+
+
+# 2. Analising the data ========================================================
+
+#Analyzing Presence-Only data
+(pb.fit=pb.ipp(X.pb, W.pb,X.back, W.back)) 
+#estimates are obtained but not se.
+# If any of the eigenvalues are zero or negative, there is obviously a problem, 
+# perhaps stemming from under identification or boundary conditions
+# One thing you might try is to refit the model from its solution, to see 
+# if the gradients get smaller, and the NaN's clear up.
+# > pb.fit
+# $coefs
+# Parameter name       Value Standard error
+# 1                     beta0 -2.14667766     0.07994286
+# 2     AnnualMeanTemperature  0.79053507     0.10671768
+# 3                      clay -0.29408512     0.03372959
+# 4                      elev -0.77522035     0.13323224
+# 5       AnnualPrecipitation  0.35858355     0.03337058
+# 6                  habit0pc  0.65510645     0.09293961
+# 7                  habit1pc  0.15593408     0.05454184
+# 8                  habit2pc  0.11365113     0.05051433
+# 9                  habit3pc  0.32729882     0.07020533
+# 10                   alpha0  0.14012092     0.18512155
+# 11                 dis_city -3.27397922     0.27526465
+# 12 distance_tertiaryandlink -0.07361067     0.12179921
+# 
+# $convergence
+# [1] 0
+# 
+# $value
+# [1] 2752.702
+# 
+# $value
+# [1] 2783.46
+
+################
+coef <- pb.fit$coefs
+coeff <- coef[c(1,2)]
+
+#occupancy rasters
+
+f <- s.occupancy
+
+# get predictions for each raster
+
+f2 <- subset(f,c(1))*coeff$Value[[2]]
+f3 <- subset(f,c(1))*coeff$Value[[3]]
+f4 <- subset(f,c(1))*coeff$Value[[4]]
+f5 <- subset(f,c(1))*coeff$Value[[5]]
+f6 <- subset(f,c(1))*coeff$Value[[6]]
+f7 <- subset(f,c(1))*coeff$Value[[7]]
+# f8 <- subset(f,c(1))*coeff$Value[[8]]
+# f9 <- subset(f,c(1))*coeff$Value[[9]]
+# f10 <- subset(f,c(1))*coeff$Value[[10]]
+# f11 <- subset(f,c(1))*coeff$Value[[11]]
+# f12 <- subset(f,c(1))*coeff$Value[[12]]
+
+fn <- exp(f2+f3+f4+f5+f6+f7+coeff$Value[[1]])
+
+plot(fn)
+
+plot(fn, main= "intensity 2010 data")
+
+
+#detection rasters
+
+ff <- s.detection
+
+# get predictions for each raster
+
+ff13 <- subset(ff,c(1))*coeff$Value[[8]] 
+ff14 <- subset(ff,c(2))*coeff$Value[[9]]
+fn2 <-  (ff13+ff14)+coeff$Value[[7]]   
+
+fnn <- logit.prob(fn2)
+
+plot(fnn, main =" probability of detection")
+
+#final intensity
+
+fn3 <- fn*fnn
+
+plot(fn3, main = "bias corrected intensity")
+
+
+# plot intensity baed on ecological varibales and detection based on observer bias vribales.
+
+par(mfrow=c(2,2))
+
+plot(fn3); plot(fnn) ; plot(fn)
+
+
+
+#################
+f <- s.occupancy
+f1 <- subset(f,c(1))*0.6220131 #0.79053507
+f2 <- subset(f,c(2))*- 0.3067281#-0.29408512
+f3 <- subset(f,c(3))*-0.7443429 #-0.77522035
+f4 <- subset(f,c(4))*0.3372941 #0.35858355
+f5 <- subset(f,c(5))*0.6024214 # 0.65510645
+f6 <- subset(f,c(6))*0.1370172 # 0.15593408
+f7 <- subset(f,c(7))*0.1432968 #0.11365113
+f8 <- subset(f,c(8))*0.2757422  #0.32729882 
+fn <- exp(f1+f2+f3+f4+f5+f6+f7+f8)-1.8802929 #-2.14667766  
+plot(fn)
+opar <- par() #make a copy of current settings
+#par(opar)          # restore original settings
+mypar <- par(mar=c(0.5,0.5,0.5,0.5), oma=c(0.5,0.5,0.5,0.5))
+
+ff <- s.detection
+f9 <- subset(ff,c(1))*-2.3293703# -0.6404511
+f10<- subset(ff,c(2))*-0.6387529# -0.6387529 
+fn2 <- (f9+f10)-0.6404511 
+library(optiRum)
+fnn <- logit.prob(fn2)
+plot(fnn)
+fn2 <- fn*fnn978np624
+
+plot(fn2)
 
 
 
