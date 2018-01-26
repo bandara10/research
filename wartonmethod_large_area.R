@@ -11,6 +11,7 @@ setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_syn\\w
 ##########Step 1: load koala data frm tow sources. BoalaBASE and Wildnet#####
 ## step 1 and two are common to all methods.
 
+
 load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//mydatasighting_cleaned.RData")
 mydata=mydatasighting_cleaned
 mydata <- mydata[c("X","Y","yearnew")]
@@ -19,10 +20,19 @@ mydata <- mydata[c("X","Y","yearnew")]
 
 load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//wildnetdata_old.RData") # wildnet data.
 mydata2 <- wildnetdata[c("X","Y","yearnew")]
-
-mydata3=rbind(mydata, mydata2)
+# 
+# mydata3=rbind(mydata, mydata2)
 
 all.locations= subset(mydata3,yearnew >1998, select=X:Y)
+
+# Get gold coast data
+load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//koala_gold_coast.RData")
+mydata3 <- koala_gold_coast[c("X","Y","yearnew")]
+
+myalldata=rbind(mydata, mydata2,mydata3)
+
+
+all.locations= subset(myalldata,yearnew >1998, select=X:Y)
 
 
 # Select records based on distance
@@ -249,7 +259,8 @@ ppm.2 = ~ poly(Annual_Mean_Temperature
                ,degree = 2, raw = TRUE)+poly(distance_primaryandlink
                                              ,distance_motorwayandlink
                                              ,degree = 2, raw = TRUE)
-
+# interactions allowed between variables but not between climatic and distance variables.
+# linear, quadratic and first order interactions.
 
 ppmFit.2 = ppmlasso(ppm.2, sp.xy = sp.xy, env.grid = bigquad, sp.scale = 1, n.fits = 100)
 diagnose.ppmlasso(ppmFit.2)
@@ -262,6 +273,7 @@ diagnose.ppmlasso(ppmFit.2, which = "y", type = "Pearson", compute.sd = TRUE)
 
 kenv = envelope(ppmFit.2, fun = Kest) # #check k envelop and see what level of interaction occurs.
 plot(kenv,main= "Inhomogeneous K-function with 95% simulation envelope")
+
 # Make predictions
 
 pred.fit.dis = predict.ppmlasso(ppmFit.2, newdata=bigquad)
@@ -340,7 +352,7 @@ mypar <- par(mar=c(1.5,1.5,1.5,1.5), oma=c(0.5,0.5,0.5,0.5))
 
 # habitat.rr = my raster subset for the analysis.
 
-acsel210 = selected.locations
+acsel210 = selected.locations   # same as sp.xy in the above model
 acsel210$Haskoala <- 1
 myfullstack.sub=habitat.rr
 
@@ -379,7 +391,7 @@ rspec[cells] <- dpart$Haskoala
 plot(rspec)
 text(dpart$X, dpart$Y, lab = dpart$Haskoala)
 
-Press.g<- as.data.frame(rspec, xy=TRUE)   # Has snome NA valuves.
+Press.g<- as.data.frame(rspec, xy=TRUE)   
 
 #### Press.g need this for Hefley method for group variable.
 
@@ -389,32 +401,52 @@ colnames(Press.g)[3] <- "koala"
 ptest=cbind(Press.g,myfullstack.subdf)   ### now remove na
 Press= na.omit(ptest)  # same as sp.at=Press ;  Pres=koala
 
-# save this for future use in comapringlikelihood.
-
-Press.my=Press
+Press.my = Press# save this for future use in comapringlikelihood.
 
 # koala presence locations
 
 Pres <- Press[,3]   # this create a vector, Press[c(3)] create a sublist.
 
-### now get design matrix
-
 X.des=Press[,4:10]
+
+# set same distance level to distance covariate as in lasso method.
+
+X.des.2 <- X.des
+X.des.2$distance_primaryandlink = min(X.des.2$distance_primaryandlink) 
+X.des.2$distance_motorwayandlink = min(X.des.2$distance_motorwayandlink)
+
+
+X.des.2=as.matrix(X.des.2)  # quadrature points with common level of distance to all locations.
 X.des=as.matrix(X.des)  # quadrature points.
 
+
+
+
 ####      iwlr      #######==============================
-         
+
+# reall  above ppmlasso use interaction terms. linear, quadatic and first order interactions.         
+# QUesiton : how to evaluvate this model? AUS and TSS.
+# How to allow interactions among vaiables. to compare for ppmlasso model?
+# uncomment to use this section. not too sure of accurasy of it.
+
+X.des.df = as.data.frame(X.des)
+X.des.poly = polym(X.des.df$Annual_Mean_Temperature, X.des.df$Annual_Precipitation, X.des.df$fpcnew
+      ,X.des.df$Max_Temperature_of_Warmest_Month, X.des.df$Min_Temperature_of_Coldest_Month,degree=2, raw=TRUE)
+X.des.poly2 = polym(X.des.df$distance_motorwayandlink, X.des.df$distance_primaryandlink, degree=2, raw=TRUE)
+X.des = cbind(cbind(X.des.poly,X.des.poly2))
+X.des = as.matrix(X.des)
+
+###
 
 
-up.wt = (1.e6)^(1 - Pres)  # up.wt = (10^6)^(1 - Pres)
+up.wt = (1.e6)^(1 - Pres)  # up.wt = (10^6)^(1 - Pres) # Pres is a binary vvector for presence absence.
 iwlr = glm(Pres ~ X.des, family = binomial(), weights = up.wt)
 
-## check coefficents
 iwlr
-# 
 
 dd1 <- as.data.frame(X.des) # get coordinates of the design matrix for predictions. similr to warton method.
-pred.iwlr = predict(iwlr, newdata=dd1)
+
+pred.iwlr = predict(iwlr, newdata=dd1) # dd1 =bigquad
 
 #r <- raster(myfullstack.sub, layer=2) 
 
@@ -422,13 +454,44 @@ dfull <- as.data.frame(r, xy = TRUE)
 
 xydatan <- Press[c(1,2)]
 
-# get coordinates only
+# get coordinates only # bias not corrected map
 
 pred.iwlr <- cbind(xydatan, pred.iwlr)
 pred.iwlreg <- rasterFromXYZ(as.data.frame(pred.iwlr)[, c("x", "y", "pred.iwlr")])
 plot(pred.iwlreg,asp=1)
 plot(selected.loc, add=TRUE)
+
+# bias corrected map
+# for bias correction new data set`s distance variables are set to a common level as in ppmlasso method.`
+# X.de.2 has this common level.
+
+X.des.df2 = as.data.frame(X.des.2)
+X.des.poly3 = polym(X.des.df2$Annual_Mean_Temperature, X.des.df2$Annual_Precipitation, X.des.df2$fpcnew
+                   ,X.des.df2$Max_Temperature_of_Warmest_Month, X.des.df2$Min_Temperature_of_Coldest_Month,degree=2, raw=TRUE)
+X.des.poly4 = polym(X.des.df$distance_motorwayandlink, X.des.df$distance_primaryandlink, degree=2, raw=TRUE)
+X.des2 = cbind(cbind(X.des.poly3,X.des.poly4))
+X.des2 = as.matrix(X.des2)
+
+
+
+
+
+dd2 <- as.data.frame(X.des.2)
+
+pred.iwlr.2 = predict(iwlr, newdata=dd2) # bias corrected check distance variables in  dd2 dataset same as bigquad.2 data.
+
+
+pred.iwlr.2 <- cbind(xydatan, pred.iwlr.2)
+pred.iwlreg.2 <- rasterFromXYZ(as.data.frame(pred.iwlr.2)[, c("x", "y", "pred.iwlr.2")])
+plot(pred.iwlreg.2,asp=1)
+plot(selected.loc, add=TRUE)
+
+
+
+
 ###       DWPR     ######===================================
+# QUesiton : how to evaluvate this model? AUS and TSS.
+# 
 
 p.wt = rep(1.e-6, length(Pres))
 p.wt[Pres == 0] = 8310/sum(Pres == 0)
@@ -436,7 +499,6 @@ dwpr = glm(Pres/p.wt ~ X.des, family = poisson(), weights = p.wt)
 
 # check coefficents 
 dwpr
-#
 
 dd <- as.data.frame(X.des)
 pred.dwpr = predict(dwpr, newdata=dd)
@@ -452,6 +514,19 @@ pred.dwpreg <- rasterFromXYZ(as.data.frame(pred.dwpr)[, c("x", "y", "pred.dwpr")
 plot(pred.dwpreg,asp=1)
 
 # plot lcoations over the map
+plot(selected.loc, add=TRUE)
+
+# bias correction map
+# for bias correction new data set`s distance variables are set to a common level as in ppmlasso method.`
+# X.de.2 has this common level.
+
+dd2 <- as.data.frame(X.des.2)
+
+pred.dwpr.2 = predict(dwpr, newdata=dd2) # bias corrected check distance variables in  dd2 dataset.
+
+pred.dwpr.2 <- cbind(xydatan, pred.dwpr.2)
+pred.dwpreg.2 <- rasterFromXYZ(as.data.frame(pred.dwpr.2)[, c("x", "y", "pred.dwpr.2")])
+plot(pred.dwpreg.2,asp=1)
 plot(selected.loc, add=TRUE)
 
 ############## STOP here ###############
@@ -1100,8 +1175,6 @@ plot(fn3, main = "bias corrected intensity")
 par(mfrow=c(2,2))
 
 plot(fn3); plot(fnn) ; plot(fn)
-
-
 
 #################
 f <- s.occupancy
