@@ -4,6 +4,9 @@ library(lmtest);library(spatial.tools);library(VGAM);library(mosaic);library(far
 library(ncf);library(foreign);library(nlme)   ;library(MASS);library(ROCR);library(vcd)
 library(RColorBrewer);library(classInt);library(ppmlasso);library(usdm) ; library(ncf); library(epicalc)
 library(optiRum)
+library(fields)
+library(mvtnorm)
+library(matrixStats)
 ##############
 
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_syn\\warton_data")
@@ -23,27 +26,22 @@ mydata2 <- wildnetdata[c("X","Y","yearnew")]
 # 
 # mydata3=rbind(mydata, mydata2)
 
-all.locations= subset(mydata3,yearnew >1998, select=X:Y)
-
 # Get gold coast data
 load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//koala_gold_coast.RData")
 mydata3 <- koala_gold_coast[c("X","Y","yearnew")]
-
 myalldata=rbind(mydata, mydata2,mydata3)
 
+#myalldata[!duplicated(myalldata$X &myalldata$Y), ]
 
 all.locations= subset(myalldata,yearnew >1998, select=X:Y)
-
+pp=SpatialPoints(all.locations)
 
 # Select records based on distance
 
 source("Lib_DistEstimatesToItself.r")## set a minimum distance between koalas
 all.locations$disttoitself = Lib_DistEstimatesToItself(all.locations$X, all.locations$Y)
-select.locations = subset(all.locations, all.locations$disttoitself > 200)
+select.locations = subset(all.locations, all.locations$disttoitself > 500)
 selected.locations = select.locations[,1:2]
-
-
-
 
 ######Step 2: load rasters and crop to my extent of interest######
 
@@ -66,7 +64,7 @@ habitat.r<- subset(myfullstack, c(1,2,4,6,13,16,23, 24, 25,26,27,28,29,39,40,41)
 
 #select koalas from grids
 
-selected.locations=gridSample(selected.locations, habitat.r, n = 100)
+selected.locations=gridSample(selected.locations, habitat.r, n = 100)# disaggregate a raster factor 4 and get one point.
 loc=SpatialPoints((selected.locations))
 plot(loc, add=TRUE)
 
@@ -83,7 +81,7 @@ plot(habitat.rr,  nc = 4, nr =3)
 # plot raster and overlay koala locations
 
 plot(habitat.rr,addfun = fun,  nc =4, nr =3)
-#--------------------------------------------------------------------------------------
+#--
 # ######## All climate rasters .
 
 myfullstack.b <- list.files(path="warton_data_allclimate",pattern="\\.tif$",full.names=TRUE)
@@ -94,7 +92,6 @@ habitat.rr=crop(myfullstack.b, myextent, snap="near")
 
 habitat.rr<- subset(habitat.rr, c(1,2,15,18,26,33,39)) # select my variables
 
-#------------------------------------------------------------------------------------------
 
 ######Step 3. Create quadrature points and species xy data. Remove NA. Keep xy colomns for preditions and rasterize. ######
 
@@ -293,7 +290,7 @@ plot(pred.model.crt , main=" koala density-warton method/ bias corrected")
 
 #####step 6.#plot all with same legend######
 
-par(mfrow=c(2,2),oma=c(1,1,1,1))
+par(mfrow=c(1,3),oma=c(1,1,1,1))
 plot(pred.model.1, zlim = c(0, 7),main="env only")
 plot(pred.model.2, zlim = c(0, 7),main="env_dis")
 plot(pred.model.crt, zlim = c(0, 7), main="bias corrected")
@@ -407,6 +404,22 @@ Press.my = Press# save this for future use in comapringlikelihood.
 
 Pres <- Press[,3]   # this create a vector, Press[c(3)] create a sublist.
 
+availability.gird=Press[c(1,2,3)]
+availability.gird<- rasterFromXYZ(availability.gird[, c("x", "y", "koala")])
+plot(availability.gird)
+availa.gird=as.matrix(availability.gird)
+a.grid=rasterToPolygons(availability.gird)
+writeOGR(a.grid, ".", "a.grid", driver="ESRI Shapefile")
+
+
+available_grdBris=readShapePoly("abc.shp")
+
+
+av.grid=rasterToPolygons("available_grdBris.shp")
+
+
+available_grdBris.shp
+
 X.des=Press[,4:10]
 
 # set same distance level to distance covariate as in lasso method.
@@ -430,23 +443,29 @@ X.des=as.matrix(X.des)  # quadrature points.
 # uncomment to use this section. not too sure of accurasy of it.
 
 X.des.df = as.data.frame(X.des)
-X.des.poly = polym(X.des.df$Annual_Mean_Temperature, X.des.df$Annual_Precipitation, X.des.df$fpcnew
-      ,X.des.df$Max_Temperature_of_Warmest_Month, X.des.df$Min_Temperature_of_Coldest_Month,degree=2, raw=TRUE)
-X.des.poly2 = polym(X.des.df$distance_motorwayandlink, X.des.df$distance_primaryandlink, degree=2, raw=TRUE)
-X.des = cbind(cbind(X.des.poly,X.des.poly2))
+
+# ###
+# X.des.poly = polym(X.des.df$Annual_Mean_Temperature, X.des.df$Annual_Precipitation, X.des.df$fpcnew
+#       ,X.des.df$Max_Temperature_of_Warmest_Month, X.des.df$Min_Temperature_of_Coldest_Month,degree=2, raw=TRUE)
+# X.des.poly2 = polym(X.des.df$distance_motorwayandlink, X.des.df$distance_primaryandlink, degree=2, raw=TRUE)
+# X.des = cbind(cbind(X.des.poly,X.des.poly2))
+
+####
+
 X.des = as.matrix(X.des)
 
 ###
 
 
-up.wt = (1.e6)^(1 - Pres)  # up.wt = (10^6)^(1 - Pres) # Pres is a binary vvector for presence absence.
-iwlr = glm(Pres ~ X.des, family = binomial(), weights = up.wt)
+up.wt = (1.e6)^(1 - Pres)  # up.wt = (10^6)^(1 - Pres) # Pres is a binary vector for presence absence.
+iwlr = glm(Pres ~ X.des, family = binomial(), weights = up.wt) #Pres ~ X.des, decide how many quadrature points.
 
 iwlr
 
 dd1 <- as.data.frame(X.des) # get coordinates of the design matrix for predictions. similr to warton method.
 
-pred.iwlr = predict(iwlr, newdata=dd1) # dd1 =bigquad
+pred.iwlr = predict(iwlr, newdata=dd1, response=TRUE) # dd1 =bigquad
+#pred.iwlr=logit.prob(pred.iwlr)
 
 #r <- raster(myfullstack.sub, layer=2) 
 
@@ -457,6 +476,7 @@ xydatan <- Press[c(1,2)]
 # get coordinates only # bias not corrected map
 
 pred.iwlr <- cbind(xydatan, pred.iwlr)
+
 pred.iwlreg <- rasterFromXYZ(as.data.frame(pred.iwlr)[, c("x", "y", "pred.iwlr")])
 plot(pred.iwlreg,asp=1)
 plot(selected.loc, add=TRUE)
@@ -466,20 +486,16 @@ plot(selected.loc, add=TRUE)
 # X.de.2 has this common level.
 
 X.des.df2 = as.data.frame(X.des.2)
+
 X.des.poly3 = polym(X.des.df2$Annual_Mean_Temperature, X.des.df2$Annual_Precipitation, X.des.df2$fpcnew
                    ,X.des.df2$Max_Temperature_of_Warmest_Month, X.des.df2$Min_Temperature_of_Coldest_Month,degree=2, raw=TRUE)
 X.des.poly4 = polym(X.des.df$distance_motorwayandlink, X.des.df$distance_primaryandlink, degree=2, raw=TRUE)
 X.des2 = cbind(cbind(X.des.poly3,X.des.poly4))
 X.des2 = as.matrix(X.des2)
 
-
-
-
-
 dd2 <- as.data.frame(X.des.2)
 
 pred.iwlr.2 = predict(iwlr, newdata=dd2) # bias corrected check distance variables in  dd2 dataset same as bigquad.2 data.
-
 
 pred.iwlr.2 <- cbind(xydatan, pred.iwlr.2)
 pred.iwlreg.2 <- rasterFromXYZ(as.data.frame(pred.iwlr.2)[, c("x", "y", "pred.iwlr.2")])
@@ -490,19 +506,19 @@ plot(selected.loc, add=TRUE)
 
 
 ###       DWPR     ######===================================
-# QUesiton : how to evaluvate this model? AUS and TSS.
+# QUesiton : how to evaluvate this model? AUC and TSS.
 # 
 
 p.wt = rep(1.e-6, length(Pres))
-p.wt[Pres == 0] = 8310/sum(Pres == 0)
+p.wt[Pres == 0] = 44415/sum(Pres == 0)
 dwpr = glm(Pres/p.wt ~ X.des, family = poisson(), weights = p.wt)
 
 # check coefficents 
-dwpr
+dwpr$coefficients
 
 dd <- as.data.frame(X.des)
-pred.dwpr = predict(dwpr, newdata=dd)
-
+pred.dwpr = predict(dwpr, newdata=dd, response=TRUE)
+pred.dwpr=logit.prob(pred.dwpr)
 dfull <- as.data.frame(r, xy = TRUE)
 
 xydatan <- Press[c(1,2)]
@@ -567,7 +583,7 @@ sp.dat=sp.dat.1[c(-3)]
 colnames(sp.dat)[1] <- 'X'; colnames(sp.dat)[2] <- 'Y'
 #to compare likelihoods from iwlr , dwpr and ppmlasso. recall : same as sp.at=Press ;  Pres=koala
 
-# remember to chnage variable names.
+# remember to change variable names.
 
 sp.dat$Pres = 1
 loglik = rep(NA, length(n.quad))
@@ -576,9 +592,14 @@ for (i in 1:length(n.quad)){
   quad = get(paste("quad.", n.quad[i], sep = ""))
   quad$Pres = 1
   all.dat = na.omit(data.frame(rbind(sp.dat, quad)))
-  X.des = as.matrix(cbind(poly(all.dat$AnnualMeanTemperature, all.dat$twi, all.dat$tpo,
-                               all.dat$distance_trunkandlink, all.dat$habit3decimal,  
-                               all.dat$nitro,all.dat$roadk, degree = 2, raw = TRUE)))   
+  X.des = as.matrix(cbind(poly(  all.dat$AnnualMeanTemperature
+                               , all.dat$Annual_Precipitation
+                               , all.dat$Max_Temperature_of_Warmest_Month
+                               , all.dat$Min_Temperature_of_Coldest_Month  
+                               , all.dat$fpcnew
+                               , all.dat$distance_motorwayandlink 
+                               , all.dat$distance_primaryandlink
+                               , degree = 2, raw = TRUE)))   
   p.wt = rep(1.e-8, dim(all.dat)[1])
   p.wt[all.dat$Pres == 0] = 10000/n.quad[i]
   z = all.dat$Pres/p.wt
@@ -942,20 +963,20 @@ qdata(c=(.025),bootstrap.sample[,5])#ravi:removed after .975 after .025, add c=
 
 
 ######   Drorazio method  ##############
-
+#This method works with survey data. Small survey datset added.
           #use same data 
 ####  ####  ####    ###  ####  ####  ####    ###
-
-source("functions2.r")
+setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_syn\\warton_data")
+source("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\Supplimentary materials of papers\\Vira Koshinika paper\\Data\\functions2.r")
 
 ## recall rasters being used. "habitat.rr"
 ## we read rasters directly from the folder.
 
-x.files=c( "Annual_Mean_Temperature.tif"
-            ,"Annual_Precipitation.tif"
-            ,"fpcnew.tif"
+x.files=c( "AnnualMeanTemperature.tif"
+            ,"AnnualPrecipitation.tif"
+           
             ,"clay.tif"
-            ,"elev.tif"
+            
             ,"habit1decimal.tif"
             )
 d <- stack(x.files)
@@ -964,7 +985,7 @@ s.occupancy <- scale(d,scale=TRUE,center = TRUE)
 plot(s.occupancy)
 
 
-w.files=c("fpcnew.tif") 
+w.files=c("elev.tif") 
 
 dd <- stack(w.files)
 
@@ -981,6 +1002,7 @@ names(mydata) <- tolower(names(mydata))
 #combine with wildnet data
 load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//wildnetdata_old.RData")
 wildnet <- wildnetdata[c("X","Y", "yearnew")] 
+table(wildnet$yearnew)
 names(wildnet) <- tolower(names(wildnet))
 all.loc= rbind(mydata, wildnet) 
 (b=SpatialPoints(all.loc))
@@ -992,12 +1014,13 @@ s.detection= crop(s.detection,b)
 plot(s.occupancy)
 
 # Analyse data 
-all.locations= subset(all.loc,yearnew >2000, select=x:y) #2005 originally
-plot(all.loc)
+all.locations= subset(all.loc,yearnew >2012, select=x:y) #2005 originally
+table(all.loc$yearnew)
+plot(SpatialPoints(all.locations))
 # set a minimum distance betweek koalas
 source("Lib_DistEstimatesToItself.r")
 all.locations$disttoitself = Lib_DistEstimatesToItself(all.locations$x, all.locations$y)
-select.locations = subset(all.locations, all.locations$disttoitself > 4000)
+select.locations = subset(all.locations, all.locations$disttoitself > 50)
 selected.locations = select.locations[,1:2]
 
 
@@ -1005,20 +1028,13 @@ selected.locations = select.locations[,1:2]
 (b=SpatialPoints(all.locations))
 
 ##################
-# keep a buffer distance of 2000m as required by this method.
-# get  raster dimentions:441829, 541829, 6901098, 7001098  (xmin, xmax, ymin, ymax)
 
-# selected.locations2<- subset(selected.locations, x > 443829 & x < 539829)
-# selected.locations <- subset(selected.locations2, y > 6903098 & y < 6999098) # xy only within the study area.
 pb=selected.locations
 
-# kolaxy2 <- subset(kolaxyT, X > 442000 & X < 540000)
-# pb <- subset(kolaxy2, Y > 6902000 & Y < 7000000) # xy within the area only.
-# pb <- as.matrix(pb)
 pb.loc=SpatialPoints(pb) # over 6629 beyond study area. 
 # get locations over rasters only.
-pb.occupancy=extract(s.occupancy,pb.loc) 
-pb.detection=extract(s.detection,pb.loc) 
+pb.occupancy=extract(s.occupancy,pb.loc)  # get covaiates
+pb.detection=extract(s.detection,pb.loc)  #get covariates
 # only data from study area.
 is.complete.pb=complete.cases(pb.detection)&complete.cases(pb.occupancy)
 pb.detection=pb.detection[is.complete.pb,] #3663#  distance covariates extract from rasters. only one here
@@ -1030,6 +1046,47 @@ print("allocating background")
 X.back = cbind(rep(1, ncell(s.occupancy)), values(s.occupancy))
 W.back = cbind(rep(1, ncell(s.detection)), values(s.detection)) #s.detection is raster stack.
 
+# bring repeated survey data2010-2013
+so.occupancy <- read.csv("C:/Users/uqrdissa/ownCloud/koala_survey_DEHP_joerg_96_2015/New folder/dorazio_survey.csv")
+so.occupancy <- so.occupancy[c(1,2)]
+so.occupancy <- extract(s.occupancy, so.occupancy)
+# so.occupancy=read.csv("so_occupancy.csv") # occupancy covariate valuves for survey data
+so.detection=read.csv("C:/Users/uqrdissa/ownCloud/koala_survey_DEHP_joerg_96_2015/New folder/so.detection.csv") # detection covariate valuves wind sky day 1 and 2 for survey data.
+y.so=read.csv("C:/Users/uqrdissa/ownCloud/koala_survey_DEHP_joerg_96_2015/New folder/y.so.csv") # survey data or site occupancy, day 1 day 2 presence absence.
+
+# bring repeated survey data2010-2013
+survey.data <- read.csv("C:/Users/uqrdissa/ownCloud/koala_survey_DEHP_joerg_96_2015/Koala Survey Data 2010-2015Cleaned/repeated_surveyDEHP.csv")
+xysurvey <- survey.data[c(9,10)]
+so.occupancy <- extract(s.occupancy,xysurvey)
+so.detection <- survey.data[c(3:8)]
+
+y.so <- survey.data[c(1,2)] 
+
+
+
+
+
+print("removing NA")
+is.complete=complete.cases(so.occupancy)&complete.cases(so.detection)&complete.cases(y.so)
+so.occupancy=so.occupancy[is.complete,]# only use complete cases
+so.detection=so.detection[is.complete,]# only use complete cases
+y.so=y.so[is.complete,]# only use complete cases
+area.so =pi*0.04
+
+# print('removing raster files')
+# #removing rasters to free the memory
+# for (i in c(x.files,w.files)) {
+#   do.call(remove,list(i))
+# }
+# remove(is.complete.pb,po,yb.so,po.loc)
+
+
+print("allocating background")
+#turning rasters into tables - background, adding column of ones
+X.back = cbind(rep(1, ncell(s.occupancy)), values(s.occupancy))
+W.back = cbind(rep(1, ncell(s.detection)), values(s.detection)) #s.detection is raster stack.
+
+# remove all NA values
 # remove all NA values
 
 tmp=X.back[complete.cases(X.back)&complete.cases(W.back),]
@@ -1045,21 +1102,23 @@ s.area=area.back*nrow(X.back) #study area
 
 
 # # adding column of ones - po locations
-# X.po=cbind(rep(1, nrow(as.matrix(pb.occupancy))), pb.occupancy) # v1 and covariate valuves
-# W.po=cbind(rep(1, nrow(as.matrix(pb.detection))), pb.detection) # v1, probability of detection.
+X.po=cbind(rep(1, nrow(as.matrix(pb.occupancy))), pb.occupancy) # v1 and covariate valuves
+W.po=cbind(rep(1, nrow(as.matrix(pb.detection))), pb.detection) # v1, probability of detection.
+
+##Preparing Presence-Absence data
 
 # #add a column of ones to the PA covariat
 # #y.so # matrix of presences and absences (when the species was and wasn't present)
-# J.so=ncol(y.so)
-# so.occupancy <- as.matrix(so.occupancy) # added by me
-# X.so=cbind(rep(1, nrow(as.matrix(so.occupancy))), so.occupancy)
-# #X.so$v1 <- X.so$`rep(1, nrow(as.matrix(so.occupancy)))
-# # X.so <- X.so[c(-1)]
-# # X.so <- X.so[c(13, 1:12)]
-# #X.so <- as.matrix(X.so)
-# W.so = array(dim=c(nrow(as.matrix(pb.detection)), J.so, 1))
-# W.so[,,1] = 1
-# W.so[,,2] = pb.detection# if it changes
+J.so=ncol(y.so)
+so.occupancy <- as.matrix(so.occupancy) # added by me
+X.so=cbind(rep(1, nrow(as.matrix(so.occupancy))), so.occupancy)
+#X.so$v1 <- X.so$`rep(1, nrow(as.matrix(so.occupancy)))
+# # # X.so <- X.so[c(-1)]
+# # # X.so <- X.so[c(13, 1:12)]
+# # #X.so <- as.matrix(X.so)
+W.so = array(dim=c(nrow(as.matrix(pb.detection)), J.so, 1))
+W.so[,,1] = 1
+ #W.so[,,2] = pb.detection# if it changes
 # W.so[,,3] = pb.detection2# if it changes
 
 
@@ -1090,6 +1149,16 @@ W.pb=cbind(rep(1, nrow(as.matrix(pb.detection))), pb.detection)
 
 #Analyzing Presence-Only data
 (pb.fit=pb.ipp(X.pb, W.pb,X.back, W.back)) 
+
+# W.pb is pb.detection
+# X.pb and X.back same covariates. 
+# W.back is distance covariate for detection. 
+# Analyzing presence-absence data
+(so.fit=so.model(X.so,W.so,y.so)) 
+
+# Analyzing presence-only data AND presence-absence data
+(poANDso.fit=pbso.integrated(X.pb, W.pb,X.back, W.back,X.so,W.so,y.so))
+
 #estimates are obtained but not se.
 # If any of the eigenvalues are zero or negative, there is obviously a problem, 
 # perhaps stemming from under identification or boundary conditions
@@ -1120,7 +1189,7 @@ W.pb=cbind(rep(1, nrow(as.matrix(pb.detection))), pb.detection)
 # $value
 # [1] 2783.46
 
-################
+################ presence ackground IPP model #####
 coef <- pb.fit$coefs
 coeff <- coef[c(1,2)]
 
@@ -1131,39 +1200,39 @@ f <- s.occupancy
 # get predictions for each raster
 
 f2 <- subset(f,c(1))*coeff$Value[[2]]
-f3 <- subset(f,c(1))*coeff$Value[[3]]
-f4 <- subset(f,c(1))*coeff$Value[[4]]
-f5 <- subset(f,c(1))*coeff$Value[[5]]
-f6 <- subset(f,c(1))*coeff$Value[[6]]
-f7 <- subset(f,c(1))*coeff$Value[[7]]
+f3 <- subset(f,c(2))*coeff$Value[[3]]
+f4 <- subset(f,c(3))*coeff$Value[[4]]
+f5 <- subset(f,c(4))*coeff$Value[[5]]
+f6 <- subset(f,c(5))*coeff$Value[[6]]
+# f7 <- subset(f,c(6))*coeff$Value[[7]]
 # f8 <- subset(f,c(1))*coeff$Value[[8]]
 # f9 <- subset(f,c(1))*coeff$Value[[9]]
 # f10 <- subset(f,c(1))*coeff$Value[[10]]
 # f11 <- subset(f,c(1))*coeff$Value[[11]]
 # f12 <- subset(f,c(1))*coeff$Value[[12]]
 
-fn <- exp(f2+f3+f4+f5+f6+f7+coeff$Value[[1]])
+fn <- exp(f2+f3+f4+f5+coeff$Value[[1]])
 
 plot(fn)
 
 plot(fn, main= "intensity 2010 data")
 
 
-#detection rasters
+######detection rasters ##### detectoon model
 
 ff <- s.detection
 
 # get predictions for each raster
 
-ff13 <- subset(ff,c(1))*coeff$Value[[8]] 
+ff13 <- subset(ff,c(1))*coeff$Value[[6]] 
 ff14 <- subset(ff,c(2))*coeff$Value[[9]]
-fn2 <-  (ff13+ff14)+coeff$Value[[7]]   
+fn2 <-  (ff13)+coeff$Value[[7]]   
 
 fnn <- logit.prob(fn2)
 
 plot(fnn, main =" probability of detection")
 
-#final intensity
+########final intensity from two models######
 
 fn3 <- fn*fnn
 
@@ -1176,7 +1245,87 @@ par(mfrow=c(2,2))
 
 plot(fn3); plot(fnn) ; plot(fn)
 
-#################
+################# Map standarard erros  #######
+coef <- pb.fit$coefs
+se <- coef[c(1,3)]
+se$`Standard error`
+
+#occupancy rasters
+s <- s.occupancy
+
+# get predictions for each raster
+
+s2 <- subset(s,c(1))*se$`Standard error`[[2]]
+s3 <- subset(s,c(2))*se$`Standard error`[[3]]
+s4 <- subset(s,c(3))*se$`Standard error`[[4]]
+s5 <- subset(s,c(4))*se$`Standard error`[[5]]
+s6 <- subset(s,c(1))*coeff$Value[[6]]
+s7 <- subset(s,c(1))*coeff$Value[[7]]
+# f8 <- subset(f,c(1))*coeff$Value[[8]]
+# f9 <- subset(f,c(1))*coeff$Value[[9]]
+# f10 <- subset(f,c(1))*coeff$Value[[10]]
+# f11 <- subset(f,c(1))*coeff$Value[[11]]
+# f12 <- subset(f,c(1))*coeff$Value[[12]]
+
+sn <- exp(s2+s3+s4+s5+se$`Standard error`[[1]])
+
+plot(sn)
+
+plot(sn, main= "Standard error")
+
+####### integrated model#######
+
+coef <- poANDso.fit$coefs
+
+#occupancy rasters
+
+fi <- s.occupancy
+
+# get predictions for each raster
+
+fi2 <- subset(fi,c(1))*coeff$Value[[2]]
+fi3 <- subset(fi,c(2))*coeff$Value[[3]]
+fi4 <- subset(fi,c(3))*coeff$Value[[4]]
+fi5 <- subset(fi,c(4))*coeff$Value[[5]]
+# fi6 <- subset(f,c(5))*coeff$Value[[6]]
+# f7 <- subset(f,c(6))*coeff$Value[[7]]
+# f8 <- subset(f,c(1))*coeff$Value[[8]]
+# f9 <- subset(f,c(1))*coeff$Value[[9]]
+# f10 <- subset(f,c(1))*coeff$Value[[10]]
+# f11 <- subset(f,c(1))*coeff$Value[[11]]
+# f12 <- subset(f,c(1))*coeff$Value[[12]]
+
+fin <- exp(fi2+fi3+fi4+fi5+coeff$Value[[1]])
+
+plot(fin)
+
+plot(fin, main= "intensity 2010 data")
+
+
+######detection rasters ##### detectoon model
+
+fd <- s.detection
+
+# get predictions for each raster
+
+fd13 <- subset(fd,c(1))*coeff$Value[[7]] 
+# fd14 <- subset(fd,c(2))*coeff$Value[[9]]
+fdn2 <-  (fd13)+coeff$Value[[6]]   
+
+fnnd <- logit.prob(fdn2)
+
+plot(fnnd, main =" probability of detection")
+
+########final intensity from two models######
+
+fin3 <- fin*fnnd*-0.36960085
+
+plot(fin3, main = "bias corrected intensity")
+
+
+
+####### STOP here      ########
+
 f <- s.occupancy
 f1 <- subset(f,c(1))*0.6220131 #0.79053507
 f2 <- subset(f,c(2))*- 0.3067281#-0.29408512
@@ -1199,9 +1348,25 @@ fn2 <- (f9+f10)-0.6404511
 library(optiRum)
 fnn <- logit.prob(fn2)
 plot(fnn)
-fn2 <- fn*fnn978np624
+fn2 <- fn*fnn
 
 plot(fn2)
+ 
+# save model outputs
+sink("myoutputs.txt")
+print(summary(IPP.model))
+print( summary(Detection.model))
+print(summary(IPP.corrected))
+sink()
 
+# print dpi 300 maps 
 
+jpeg("dorazio.jpeg",width=8,height=4,units="in",res=300) # 8:4 for three mpas. one map 8:10
+# png(width=3,height=3,units="in",res=600)
 
+par(mfrow=c(1,3),oma=c(1,1,1,1))
+plot(pred.model.1, zlim = c(0, 7),main="env only")
+plot(pred.model.2, zlim = c(0, 7),main="env_dis")
+plot(pred.model.crt, zlim = c(0, 7), main="bias corrected")
+
+graphics.off()

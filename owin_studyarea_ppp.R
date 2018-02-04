@@ -15,7 +15,6 @@ setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_syn\\w
 ##########Step 1: load koala data from BoalaBASE, Wildnet and Gold coast#####
 ## step 1 and two are common to all methods.
 
-
 load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//mydatasighting_cleaned.RData")
 mydata=mydatasighting_cleaned
 mydata <- mydata[c("X","Y","yearnew")]
