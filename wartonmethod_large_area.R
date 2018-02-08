@@ -1001,10 +1001,16 @@ names(mydata) <- tolower(names(mydata))
 
 #combine with wildnet data
 load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//wildnetdata_old.RData")
-wildnet <- wildnetdata[c("X","Y", "yearnew")] 
-table(wildnet$yearnew)
-names(wildnet) <- tolower(names(wildnet))
-all.loc= rbind(mydata, wildnet) 
+mydata2 <- wildnetdata[c("X","Y", "yearnew")] 
+table(mydata2$yearnew)
+names(mydata2) <- tolower(names(mydata2))
+
+# Get gold coast data
+load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//koala_gold_coast.RData")
+mydata3 <- koala_gold_coast[c("X","Y","yearnew")]
+names(mydata3) <- tolower(names(mydata3))
+all.loc=rbind(mydata, mydata2,mydata3)
+
 (b=SpatialPoints(all.loc))
 
 #crop base on extent of koala locations.
@@ -1014,13 +1020,13 @@ s.detection= crop(s.detection,b)
 plot(s.occupancy)
 
 # Analyse data 
-all.locations= subset(all.loc,yearnew >2012, select=x:y) #2005 originally
+all.locations= subset(all.loc,yearnew ==2012, select=x:y) #2005 originally
 table(all.loc$yearnew)
 plot(SpatialPoints(all.locations))
-# set a minimum distance betweek koalas
+# set a minimum distance between koalas
 source("Lib_DistEstimatesToItself.r")
 all.locations$disttoitself = Lib_DistEstimatesToItself(all.locations$x, all.locations$y)
-select.locations = subset(all.locations, all.locations$disttoitself > 50)
+select.locations = subset(all.locations, all.locations$disttoitself > 400)
 selected.locations = select.locations[,1:2]
 
 
@@ -1046,26 +1052,45 @@ print("allocating background")
 X.back = cbind(rep(1, ncell(s.occupancy)), values(s.occupancy))
 W.back = cbind(rep(1, ncell(s.detection)), values(s.detection)) #s.detection is raster stack.
 
-# bring repeated survey data2010-2013
-so.occupancy <- read.csv("C:/Users/uqrdissa/ownCloud/koala_survey_DEHP_joerg_96_2015/New folder/dorazio_survey.csv")
-so.occupancy <- so.occupancy[c(1,2)]
-so.occupancy <- extract(s.occupancy, so.occupancy)
-# so.occupancy=read.csv("so_occupancy.csv") # occupancy covariate valuves for survey data
-so.detection=read.csv("C:/Users/uqrdissa/ownCloud/koala_survey_DEHP_joerg_96_2015/New folder/so.detection.csv") # detection covariate valuves wind sky day 1 and 2 for survey data.
-y.so=read.csv("C:/Users/uqrdissa/ownCloud/koala_survey_DEHP_joerg_96_2015/New folder/y.so.csv") # survey data or site occupancy, day 1 day 2 presence absence.
+# # bring repeated survey data2010-2013
+# so.occupancy <- read.csv("C:/Users/uqrdissa/ownCloud/koala_survey_DEHP_joerg_96_2015/New folder/dorazio_survey.csv")
+# so.occupancy <- so.occupancy[c(1,2)]
+# so.occupancy <- extract(s.occupancy, so.occupancy)
+# # so.occupancy=read.csv("so_occupancy.csv") # occupancy covariate valuves for survey data
+# so.detection=read.csv("C:/Users/uqrdissa/ownCloud/koala_survey_DEHP_joerg_96_2015/New folder/so.detection.csv") # detection covariate valuves wind sky day 1 and 2 for survey data.
+# y.so=read.csv("C:/Users/uqrdissa/ownCloud/koala_survey_DEHP_joerg_96_2015/New folder/y.so.csv") # survey data or site occupancy, day 1 day 2 presence absence.
 
-# bring repeated survey data2010-2013
+########Option 2: ============== 
+#bring repeated survey data 1996-1997
+survey.data <- read.csv("C:/Users/uqrdissa/ownCloud/koala_survey_DEHP_joerg_96_2015/Koala Survey Data 1996-2009Cleaned/rpt.survey96_97.csv")
+survey.data2 <- read.csv("C:/Users/uqrdissa/ownCloud/koala_survey_DEHP_joerg_96_2015/Koala Survey Data 2010-2015Cleaned/repeated_surveyDEHP.csv")
+survey.data2 <- survey.data2[c(9,10,1:8)]
+survey.data <- rbind(survey.data,survey.data2)
+# set a minimum distance betweek koalas
+source("Lib_DistEstimatesToItself.r")
+survey.data$disttoitself = Lib_DistEstimatesToItself(survey.data$EastingM, survey.data$NorthingsM)
+survey.data = subset(survey.data, survey.data$disttoitself > 100)
+
+so.occupancy <- survey.data[c(1,2)]
+so.occupancy <- extract(s.occupancy, so.occupancy)
+
+so.detection <- survey.data[c(5:10)]
+y.so <- survey.data[c(3,4)] 
+
+#######Option 1: =================================
+
+#  bring repeated survey data2010-2013
 survey.data <- read.csv("C:/Users/uqrdissa/ownCloud/koala_survey_DEHP_joerg_96_2015/Koala Survey Data 2010-2015Cleaned/repeated_surveyDEHP.csv")
 xysurvey <- survey.data[c(9,10)]
+survey.xy <- SpatialPoints(xysurvey)
+plot(survey.xy)
+
 so.occupancy <- extract(s.occupancy,xysurvey)
 so.detection <- survey.data[c(3:8)]
 
 y.so <- survey.data[c(1,2)] 
 
-
-
-
-
+###### next step================================
 print("removing NA")
 is.complete=complete.cases(so.occupancy)&complete.cases(so.detection)&complete.cases(y.so)
 so.occupancy=so.occupancy[is.complete,]# only use complete cases
@@ -1203,7 +1228,7 @@ f2 <- subset(f,c(1))*coeff$Value[[2]]
 f3 <- subset(f,c(2))*coeff$Value[[3]]
 f4 <- subset(f,c(3))*coeff$Value[[4]]
 f5 <- subset(f,c(4))*coeff$Value[[5]]
-f6 <- subset(f,c(5))*coeff$Value[[6]]
+# f6 <- subset(f,c(5))*coeff$Value[[6]]
 # f7 <- subset(f,c(6))*coeff$Value[[7]]
 # f8 <- subset(f,c(1))*coeff$Value[[8]]
 # f9 <- subset(f,c(1))*coeff$Value[[9]]
@@ -1370,3 +1395,56 @@ plot(pred.model.2, zlim = c(0, 7),main="env_dis")
 plot(pred.model.crt, zlim = c(0, 7), main="bias corrected")
 
 graphics.off()
+
+
+
+##### REsults 1.================== parameters, > 2012, distance 50, surveydata96_97.
+# $coefs
+# Parameter name       Value Standard error
+# 1                 beta0  4.01549817     5.25900958
+# 2 AnnualMeanTemperature -0.97016671     0.03647652
+# 3   AnnualPrecipitation  0.76058893     0.02468097
+# 4                  clay  0.47807865     0.03564276
+# 5         habit1decimal  0.04782838     0.02754691
+# 6                alpha0 -9.27773802     5.25134292
+# 7                  elev -2.77694980     0.08155905
+# 
+# $convergence
+# [1] 0
+# 
+# $value
+# [1] 4556.717
+# 
+# > (so.fit=so.model(X.so,W.so,y.so))
+# $coefs
+# Parameter name      Value Standard error
+# 1                 beta0  1.3098383      1.0900629
+# 2 AnnualMeanTemperature -2.7358278      0.6825200
+# 3   AnnualPrecipitation  0.1339197      0.8247535
+# 4                  clay  0.3944841      0.3751803
+# 5         habit1decimal -0.4095235      0.1254893
+# 6             alpha0.so  1.0808204      0.1659979
+# 
+# $convergence
+# [1] 0
+# 
+# $value
+# [1] 395.2938
+# 
+# > (poANDso.fit=pbso.integrated(X.pb, W.pb,X.back, W.back,X.so,W.so,y.so))
+# $coefs
+# Parameter name       Value Standard error
+# 1                 beta0 -0.53605508     0.08592910
+# 2 AnnualMeanTemperature -0.98825464     0.03655363
+# 3   AnnualPrecipitation  0.78258720     0.02431756
+# 4                  clay  0.46210101     0.03584251
+# 5         habit1decimal  0.01544906     0.02752850
+# 6                alpha0 -4.87370662     0.12206365
+# 7                  elev -3.12974096     0.10044113
+# 8             alpha0.so  1.01287968     0.17139997
+# 
+# $convergence
+# [1] 0
+# 
+# $value
+# [1] 4973.2
