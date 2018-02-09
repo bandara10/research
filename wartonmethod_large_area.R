@@ -1169,8 +1169,7 @@ W.so[,,1] = 1
 X.pb=cbind(rep(1, nrow(as.matrix(pb.occupancy))), pb.occupancy) # pb.occupancy is all presence locations. 
 W.pb=cbind(rep(1, nrow(as.matrix(pb.detection))), pb.detection)
 
-
-# 2. Analising the data ========================================================
+# 2. Analysing the data ========================================================
 
 #Analyzing Presence-Only data
 (pb.fit=pb.ipp(X.pb, W.pb,X.back, W.back)) 
@@ -1448,3 +1447,100 @@ graphics.off()
 # 
 # $value
 # [1] 4973.2
+
+
+##### Maxent model===============
+## we use same datasets and criteria. import data and select in the same manner we did for previous analysis.
+
+load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//mydatasighting_cleaned.RData")
+mydata <- mydatasighting_cleaned
+mydata <- mydata[c("X","Y","yearnew")]
+names(mydata) <- tolower(names(mydata))
+
+#combine with wildnet data
+load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//wildnetdata_old.RData")
+mydata2 <- wildnetdata[c("X","Y", "yearnew")] 
+table(mydata2$yearnew)
+names(mydata2) <- tolower(names(mydata2))
+
+# Get gold coast data
+load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//koala_gold_coast.RData")
+mydata3 <- koala_gold_coast[c("X","Y","yearnew")]
+names(mydata3) <- tolower(names(mydata3))
+all.loc=rbind(mydata, mydata2,mydata3)
+
+(b=SpatialPoints(all.loc))
+
+# Analyse data 
+all.locations= subset(all.loc,yearnew >2012, select=x:y) #2005 originally
+table(all.loc$yearnew)
+plot(SpatialPoints(all.locations))
+# set a minimum distance between koalas
+source("Lib_DistEstimatesToItself.r")
+all.locations$disttoitself = Lib_DistEstimatesToItself(all.locations$x, all.locations$y)
+select.locations = subset(all.locations, all.locations$disttoitself > 400)
+selected.loc = select.locations[,1:2]
+
+# remove duplicates
+selected.loc.dups=duplicated(selected.loc[, c("x", "y")])
+selected.loc <-selected.loc[!selected.loc.dups, ]
+
+
+# Get raster data
+
+myfullstack.b <- list.files(path="warton_data_allclimate",pattern="\\.tif$",full.names=TRUE)
+myfullstack.b = scale(stack(myfullstack.b))
+myextent<-extent(min(selected.loc$x)-3000,max(selected.loc$x)+3000,min(selected.loc$y)-3000,max(selected.loc$y)+3000)
+habitat.rr=crop(myfullstack.b, myextent, snap="near")
+
+habitat.rr<- subset(habitat.rr, c(1,2,15,18,26,33,39)) # select my variables
+plot(habitat.rr)
+
+
+fold <- kfold(selected.loc, k=5) # add an index that makes five random groups of observations
+selected.loctest <- selected.loc[fold == 1, ] # hold out one fifth as test data
+selected.loctrain <- selected.loc[fold != 1, ] # the other four fifths are training data
+
+library(maxnet); library(maxent)
+library(dismo) 
+library(rJava) 
+library(maptools)
+library(glmnet)
+library(reshape)
+TrainEnv <- extract(habitat.rr,selected.loctrain)
+# change long varibale names
+
+set.seed(0)
+backgr <- randomPoints(habitat.rr, 1000)
+absvals <- extract(habitat.rr, backgr)
+
+#we make a presence/absence collumn where 1=presence for our occurance points, and 0=absence for our background points
+presabs <- c(rep(1, nrow(TrainEnv)), rep(0, nrow(absvals)))
+
+sdmdata <- data.frame(cbind(presabs, rbind(TrainEnv, absvals)))
+sdmdata=rename(sdmdata, c(
+                        Annual_Mean_Temperature= "AMT"
+                       ,Annual_Precipitation = "APT"
+                      
+                       , distance_motorwayandlink = "DMWL"
+                       , distance_primaryandlink= "DPLK"
+                       , Max_Temperature_of_Warmest_Month = "MTWM"
+                       , Min_Temperature_of_Coldest_Month = "MiTWM"))
+sdmdata = na.omit(sdmdata)
+#we make a subset of that dataset, without the presence and absence values
+data <- sdmdata[,-1]
+data = na.omit(data)
+
+#we run the maxnet function to fit the SDM
+#maxnet fits using glmnet
+koala.model<-maxnet(sdmdata$presabs, data) 
+
+##three types of response plots
+plot(koala.model, type = "exponential")
+
+plot(koala.model, type = "cloglog")
+
+plot(koala.model, type = "logistic")
+
+
+model= maxent(habitat.rr, selected.loc) #note we just using the training data
