@@ -20,19 +20,23 @@ mydata <- mydata[c("X","Y","yearnew")]
 load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//wildnetdata_old.RData") # wildnet data.
 mydata2 <- wildnetdata[c("X","Y","yearnew")]
 
-mydata3=rbind(mydata, mydata2)
 
-all.locations= subset(mydata3,yearnew >1998, select=X:Y)
+# Get gold coast data
+load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//koala_gold_coast.RData")
+mydata3 <- koala_gold_coast[c("X","Y","yearnew")]
+
+myalldata=rbind(mydata, mydata2,mydata3)
+all.locations= subset(myalldata,yearnew >1998, select=X:Y)
 
 
 # Select records based on distance
 
 source("Lib_DistEstimatesToItself.r")## set a minimum distance between koalas
 all.locations$disttoitself = Lib_DistEstimatesToItself(all.locations$X, all.locations$Y)
-select.locations = subset(all.locations, all.locations$disttoitself > 200)
+select.locations = subset(all.locations, all.locations$disttoitself > 100)
 selected.locations = select.locations[,1:2]
-
-
+loc=SpatialPoints(selected.locations)
+# plot(loc)
 
 
 ######Step 2: load rasters and crop to my extent of interest######
@@ -41,11 +45,13 @@ selected.locations = select.locations[,1:2]
 
 myfullstack.b <- list.files(path="warton_data_allclimate",pattern="\\.tif$",full.names=TRUE)
 myfullstack.b = scale(stack(myfullstack.b))
-plot(myfullstack.b)
+#plot(myfullstack.b)
+#myextent<-extent(min(selected.locations$X)-10000,max(selected.locations$X)+10000,min(selected.locations$Y)-100000,max(selected.locations$Y)+100000)
+
 myextent=c(387900, 553100, 6862400, 7113600) 
 habitat.rr=crop(myfullstack.b, myextent, snap="near")
 
-habitat.rr<- subset(habitat.rr, c(1,2,15,18,26,33,39)) # select my variables
+habitat.rr<- subset(habitat.rr, c(1,2,15,18,26,34, 41)) # select my variables
 
 #
 
@@ -131,7 +137,7 @@ findres(scales, coord = c("X", "Y"), sp.xy = sp.xy, env.grid = bigquad, formula 
 
 ppmFit.1 = ppmlasso(ppm.1, sp.xy = sp.xy, env.grid = bigquad,
                     criterion = "blockCV", n.blocks = 5,
-                    block.size = 10, sp.scale = 1, n.fits = 100) # family = "area.inter", r = 2
+                    block.size = 10, sp.scale = 1, n.fits = 500) # family = "area.inter", r = 2
 ppmFit.1$beta
 
 #Check residuals]
@@ -171,7 +177,7 @@ ppm.2 = ~ poly(Annual_Mean_Temperature
 
 ppmFit.2 = ppmlasso(ppm.2, sp.xy = sp.xy, env.grid = bigquad,
                              criterion = "blockCV", n.blocks = 5,
-                             block.size = 10, sp.scale = 1, n.fits = 100)
+                             block.size = 32, sp.scale = 1, n.fits = 100)
 diagnose.ppmlasso(ppmFit.2)
 #             Check residuals
 resid.plot = diagnose(ppmFit.2, which = "smooth", type = "Pearson", main="smoothed pesrson residulas env model")
@@ -205,7 +211,7 @@ plot(pred.model.crt , main=" koala density-warton method/ bias corrected")
 par(mfrow=c(2,2),oma=c(1,1,1,1))
 plot(pred.model.1, zlim = c(0, 7),main="env only")
 plot(pred.model.2, zlim = c(0, 7),main="env_dis")
-plot(pred.model.crt, zlim = c(0, 7), main="bias corrected")
+plot(pred.model.crt, zlim = c(0, 2), main="bias corrected")
 
 
 
@@ -245,12 +251,12 @@ values(r )[values(r) > -1.414443] = 0
 rspec <- r
 
 plot(r)
-cells <- cellFromXY(rspec, as.matrix(dpart[, c("x", "y")]))
+cells <- cellFromXY(rspec, as.matrix(dpart[, c("X", "Y")]))
 
 rspec[cells] <- dpart$Haskoala
 
 plot(rspec)
-text(dpart$x, dpart$y, lab = dpart$Haskoala)
+text(dpart$X, dpart$Y, lab = dpart$Haskoala)
 
 Press.g<- as.data.frame(rspec, xy=TRUE)   
 
@@ -280,6 +286,49 @@ X.des.2$distance_motorwayandlink = min(X.des.2$distance_motorwayandlink)
 X.des.2=as.matrix(X.des.2)  # quadrature points with common level of distance to all locations.
 X.des=as.matrix(X.des)  # quadrature points.
 
+###       DWPR     ######===================================
+# QUesiton : how to evaluvate this model? AUC and TSS.
+# 
+
+p.wt = rep(1.e-6, length(Pres))
+#X.des <- X.des[,-6]
+p.wt[Pres == 0] = 44415/sum(Pres == 0)
+dwpr = glm(Pres/p.wt ~ X.des, family = poisson(), weights = p.wt)
+
+# check coefficents 
+dwpr$coefficients
+
+dd <- as.data.frame(X.des)
+pred.dwpr = predict(dwpr, newdata=dd, response=TRUE)
+pred.dwpr=logit.prob(pred.dwpr)
+dfull <- as.data.frame(r, xy = TRUE)
+
+xydatan <- Press[c(1,2)]
+
+# get coordinates only
+
+pred.dwpr <- cbind(xydatan, pred.dwpr)
+pred.dwpreg <- rasterFromXYZ(as.data.frame(pred.dwpr)[, c("x", "y", "pred.dwpr")])
+plot(pred.dwpreg,asp=1, main = "dwpr_bias not corrected")
+
+# plot locations over the map
+plot(selected.loc, add=TRUE)
+
+# bias correction map
+# for bias correction new data set`s distance variables are set to a common level as in ppmlasso method.`
+# X.de.2 has this common level.
+# dd2 is the data set for bias correction by setting distance to minimum valuve of distance.
+dd2=dd
+dd2$distance_primaryandlink = min(dd$distance_primaryandlink) 
+dd2$distance_motorwayandlink = min(dd$distance_motorwayandlink)
+
+
+pred.dwpr.2 = predict(dwpr, newdata=dd2) # bias corrected check distance variables in  dd2 dataset.
+
+pred.dwpr.2 <- cbind(xydatan, pred.dwpr.2)
+pred.dwpreg.2 <- rasterFromXYZ(as.data.frame(pred.dwpr.2)[, c("x", "y", "pred.dwpr.2")])
+plot(pred.dwpreg.2, main = " dwpr bias corrected")
+plot(selected.loc, add=TRUE)
 
 
 #######   Hefley METHOD                              #########
@@ -664,10 +713,18 @@ names(mydata) <- tolower(names(mydata))
 
 #combine with wildnet data
 load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//wildnetdata_old.RData")
-wildnet <- wildnetdata[c("X","Y", "yearnew")] 
-names(wildnet) <- tolower(names(wildnet))
-all.loc= rbind(mydata, wildnet) 
-(b=SpatialPoints(all.loc))
+mydata2 <- wildnetdata[c("X","Y","yearnew")]
+names(mydata2) <- tolower(names(mydata2))
+
+# Get gold coast data
+load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//koala_gold_coast.RData")
+mydata3 <- koala_gold_coast[c("X","Y","yearnew")]
+names(mydata3) <- tolower(names(mydata3))
+
+all.loc=rbind(mydata, mydata2,mydata3)
+
+all.locations= subset(all.loc,yearnew >1998, select=x:y)
+
 
 #crop base on extent of koala locations.
 s.occupancy=crop(s.occupancy,b)
@@ -681,7 +738,7 @@ all.locations= subset(all.loc,yearnew >2000, select=x:y) #2005 originally
 # set a minimum distance betweek koalas
 source("Lib_DistEstimatesToItself.r")
 all.locations$disttoitself = Lib_DistEstimatesToItself(all.locations$x, all.locations$y)
-select.locations = subset(all.locations, all.locations$disttoitself > 200)
+select.locations = subset(all.locations, all.locations$disttoitself > 100)
 selected.locations = select.locations[,1:2]
 
 
@@ -746,18 +803,18 @@ f <- s.occupancy
 # get predictions for each raster
 
 f2 <- subset(f,c(1))*coeff$Value[[2]]
-f3 <- subset(f,c(1))*coeff$Value[[3]]
-f4 <- subset(f,c(1))*coeff$Value[[4]]
-f5 <- subset(f,c(1))*coeff$Value[[5]]
-f6 <- subset(f,c(1))*coeff$Value[[6]]
-f7 <- subset(f,c(1))*coeff$Value[[7]]
+f3 <- subset(f,c(2))*coeff$Value[[3]]
+f4 <- subset(f,c(3))*coeff$Value[[4]]
+f5 <- subset(f,c(4))*coeff$Value[[5]]
+f6 <- subset(f,c(5))*coeff$Value[[6]]
 
 
-fn <- exp(f2+f3+f4+f5+f6+f7+coeff$Value[[1]])
+
+fn <- exp(f2+f3+f4+f5+f6+coeff$Value[[1]])
 
 plot(fn)
 
-plot(fn, main= "intensity 2010 data")
+plot(fn, main= "intensity 2000 data")
 
 
 #detection rasters
@@ -766,8 +823,8 @@ ff <- s.detection
 
 # get predictions for each raster
 
-ff13 <- subset(ff,c(1))*coeff$Value[[8]] 
-ff14 <- subset(ff,c(2))*coeff$Value[[9]]
+ff13 <- subset(ff,c(1))*coeff$Value[[7]] 
+ff14 <- subset(ff,c(2))*coeff$Value[[8]]
 fn2 <-  (ff13+ff14)+coeff$Value[[7]]   
 
 fnn <- logit.prob(fn2)
@@ -783,8 +840,65 @@ plot(fn3, main = "bias corrected intensity")
 
 # plot intensity baed on ecological varibales and detection based on observer bias vribales.
 
-par(mfrow=c(2,2))
+par(mfrow=c(1,3))
 
 plot(fn3); plot(fnn) ; plot(fn)
+
+
+###### Standard erros
+
+coef <- pb.fit$coefs
+se<- coef[c(1,3)]
+
+#occupancy rasters
+
+f <- s.occupancy
+
+# get predictions for each raster
+
+fs2 <- subset(f,c(1))*se$`Standard error`[[2]]
+fs3 <- subset(f,c(2))*se$`Standard error`[[3]]
+fs4 <- subset(f,c(3))*se$`Standard error`[[4]]
+fs5 <- subset(f,c(4))*se$`Standard error`[[5]]
+fs6 <- subset(f,c(5))*se$`Standard error`[[6]]
+
+
+
+fns <- exp(fs2+fs3+fs4+fs5+fs6+coeff$Value[[1]])
+
+plot(fns)
+
+plot(fns, main= "Standard error")
+
+
+#detection rasters
+
+ff <- s.detection
+
+# get predictions for each raster
+
+ffs13 <- subset(ff,c(1))**se$`Standard error`[[7]] 
+ffs14 <- subset(ff,c(2))**se$`Standard error`[[8]]
+fns2 <-  (ffs13+ffs14)+coeff$Value[[7]]   
+
+fnns <- logit.prob(fns2)
+
+plot(fnns, main =" probability of detection")
+
+#final intensity
+
+fns3 <- fns*fnns
+
+plot(fns3, main = "bias corrected intensity")
+
+
+# plot intensity baed on ecological varibales and detection based on observer bias vribales.
+
+par(mfrow=c(1,3))
+
+plot(fns3); plot(fnns) ; plot(fns)
+
+
+
 
 save.image(file = "models_ravi.Rdata")

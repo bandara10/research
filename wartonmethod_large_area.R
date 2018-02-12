@@ -7,6 +7,9 @@ library(optiRum)
 library(fields)
 library(mvtnorm)
 library(matrixStats)
+#============
+library(maxnet); library(maxent);library(dismo);library(rJava);library(maptools)
+library(glmnet);library(reshape); library(jsonlite)
 ##############
 
 setwd("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_syn\\warton_data")
@@ -90,7 +93,7 @@ plot(myfullstack.b)
 myextent=c(387900, 553100, 6862400, 7113600) 
 habitat.rr=crop(myfullstack.b, myextent, snap="near")
 
-habitat.rr<- subset(habitat.rr, c(1,2,15,18,26,33,39)) # select my variables
+habitat.rr<- subset(habitat.rr, c(1,2,15,18,26,33,39,41)) # select my variables
 
 
 ######Step 3. Create quadrature points and species xy data. Remove NA. Keep xy colomns for preditions and rasterize. ######
@@ -420,7 +423,7 @@ av.grid=rasterToPolygons("available_grdBris.shp")
 
 available_grdBris.shp
 
-X.des=Press[,4:10]
+X.des=Press[,4:11]
 
 # set same distance level to distance covariate as in lasso method.
 
@@ -467,6 +470,11 @@ dd1 <- as.data.frame(X.des) # get coordinates of the design matrix for predictio
 pred.iwlr = predict(iwlr, newdata=dd1, response=TRUE) # dd1 =bigquad
 #pred.iwlr=logit.prob(pred.iwlr)
 
+# dd2 is the data set for bias correction by setting distance to minimum valuve of distance.
+dd2=dd1
+dd2$distance_primaryandlink = min(dd1$distance_primaryandlink) 
+dd2$distance_motorwayandlink = min(dd1$distance_motorwayandlink)
+
 #r <- raster(myfullstack.sub, layer=2) 
 
 dfull <- as.data.frame(r, xy = TRUE)
@@ -485,15 +493,15 @@ plot(selected.loc, add=TRUE)
 # for bias correction new data set`s distance variables are set to a common level as in ppmlasso method.`
 # X.de.2 has this common level.
 
-X.des.df2 = as.data.frame(X.des.2)
+# X.des.df2 = as.data.frame(X.des.2)
+# 
+# X.des.poly3 = polym(X.des.df2$Annual_Mean_Temperature, X.des.df2$Annual_Precipitation, X.des.df2$fpcnew
+#                    ,X.des.df2$Max_Temperature_of_Warmest_Month, X.des.df2$Min_Temperature_of_Coldest_Month,degree=2, raw=TRUE)
+# X.des.poly4 = polym(X.des.df$distance_motorwayandlink, X.des.df$distance_primaryandlink, degree=2, raw=TRUE)
+# X.des2 = cbind(cbind(X.des.poly3,X.des.poly4))
+# X.des2 = as.matrix(X.des2)
 
-X.des.poly3 = polym(X.des.df2$Annual_Mean_Temperature, X.des.df2$Annual_Precipitation, X.des.df2$fpcnew
-                   ,X.des.df2$Max_Temperature_of_Warmest_Month, X.des.df2$Min_Temperature_of_Coldest_Month,degree=2, raw=TRUE)
-X.des.poly4 = polym(X.des.df$distance_motorwayandlink, X.des.df$distance_primaryandlink, degree=2, raw=TRUE)
-X.des2 = cbind(cbind(X.des.poly3,X.des.poly4))
-X.des2 = as.matrix(X.des2)
-
-dd2 <- as.data.frame(X.des.2)
+#dd2 <- as.data.frame(X.des.2)
 
 pred.iwlr.2 = predict(iwlr, newdata=dd2) # bias corrected check distance variables in  dd2 dataset same as bigquad.2 data.
 
@@ -510,6 +518,7 @@ plot(selected.loc, add=TRUE)
 # 
 
 p.wt = rep(1.e-6, length(Pres))
+X.des <- X.des[,-6]
 p.wt[Pres == 0] = 44415/sum(Pres == 0)
 dwpr = glm(Pres/p.wt ~ X.des, family = poisson(), weights = p.wt)
 
@@ -527,22 +536,25 @@ xydatan <- Press[c(1,2)]
 
 pred.dwpr <- cbind(xydatan, pred.dwpr)
 pred.dwpreg <- rasterFromXYZ(as.data.frame(pred.dwpr)[, c("x", "y", "pred.dwpr")])
-plot(pred.dwpreg,asp=1)
+plot(pred.dwpreg,asp=1, main = "dwpr_bias not corrected")
 
-# plot lcoations over the map
+# plot locations over the map
 plot(selected.loc, add=TRUE)
 
 # bias correction map
 # for bias correction new data set`s distance variables are set to a common level as in ppmlasso method.`
 # X.de.2 has this common level.
+# dd2 is the data set for bias correction by setting distance to minimum valuve of distance.
+dd2=dd
+dd2$distance_primaryandlink = min(dd$distance_primaryandlink) 
+dd2$distance_motorwayandlink = min(dd$distance_motorwayandlink)
 
-dd2 <- as.data.frame(X.des.2)
 
 pred.dwpr.2 = predict(dwpr, newdata=dd2) # bias corrected check distance variables in  dd2 dataset.
 
 pred.dwpr.2 <- cbind(xydatan, pred.dwpr.2)
 pred.dwpreg.2 <- rasterFromXYZ(as.data.frame(pred.dwpr.2)[, c("x", "y", "pred.dwpr.2")])
-plot(pred.dwpreg.2,asp=1)
+plot(pred.dwpreg.2, main = " wepr bias corrected")
 plot(selected.loc, add=TRUE)
 
 ############## STOP here ###############
@@ -1480,7 +1492,8 @@ source("Lib_DistEstimatesToItself.r")
 all.locations$disttoitself = Lib_DistEstimatesToItself(all.locations$x, all.locations$y)
 select.locations = subset(all.locations, all.locations$disttoitself > 400)
 selected.loc = select.locations[,1:2]
-
+# loc = SpatialPoints(selected.loc)
+# plot(loc, add = TRUE)
 # remove duplicates
 selected.loc.dups=duplicated(selected.loc[, c("x", "y")])
 selected.loc <-selected.loc[!selected.loc.dups, ]
@@ -1489,27 +1502,24 @@ selected.loc <-selected.loc[!selected.loc.dups, ]
 # Get raster data
 
 myfullstack.b <- list.files(path="warton_data_allclimate",pattern="\\.tif$",full.names=TRUE)
-myfullstack.b = scale(stack(myfullstack.b))
+myfullstack.b = stack(myfullstack.b)
 myextent<-extent(min(selected.loc$x)-3000,max(selected.loc$x)+3000,min(selected.loc$y)-3000,max(selected.loc$y)+3000)
+
 habitat.rr=crop(myfullstack.b, myextent, snap="near")
 
-habitat.rr<- subset(habitat.rr, c(1,2,15,18,26,33,39)) # select my variables
+habitat.rr<- subset(habitat.rr, c(1,2,15,18,26,34, 41)) # select my variables
 plot(habitat.rr)
 
+habitat.rr=scale(habitat.rr)
+plot(habitat.rr)
 
 fold <- kfold(selected.loc, k=5) # add an index that makes five random groups of observations
 selected.loctest <- selected.loc[fold == 1, ] # hold out one fifth as test data
 selected.loctrain <- selected.loc[fold != 1, ] # the other four fifths are training data
 
-library(maxnet); library(maxent)
-library(dismo) 
-library(rJava) 
-library(maptools)
-library(glmnet)
-library(reshape)
 TrainEnv <- extract(habitat.rr,selected.loctrain)
-# change long varibale names
 
+# Background points are for model validation.No partitioning. 
 set.seed(0)
 backgr <- randomPoints(habitat.rr, 1000)
 absvals <- extract(habitat.rr, backgr)
@@ -1518,14 +1528,7 @@ absvals <- extract(habitat.rr, backgr)
 presabs <- c(rep(1, nrow(TrainEnv)), rep(0, nrow(absvals)))
 
 sdmdata <- data.frame(cbind(presabs, rbind(TrainEnv, absvals)))
-sdmdata=rename(sdmdata, c(
-                        Annual_Mean_Temperature= "AMT"
-                       ,Annual_Precipitation = "APT"
-                      
-                       , distance_motorwayandlink = "DMWL"
-                       , distance_primaryandlink= "DPLK"
-                       , Max_Temperature_of_Warmest_Month = "MTWM"
-                       , Min_Temperature_of_Coldest_Month = "MiTWM"))
+
 sdmdata = na.omit(sdmdata)
 #we make a subset of that dataset, without the presence and absence values
 data <- sdmdata[,-1]
@@ -1533,14 +1536,44 @@ data = na.omit(data)
 
 #we run the maxnet function to fit the SDM
 #maxnet fits using glmnet
-koala.model<-maxnet(sdmdata$presabs, data) 
+loc = sdmdata$presabs
+koala.model<-maxnet(loc, data) 
 
+
+
+ #mod <- maxnet(loc, data, maxnet.formula(loc, data, classes="default"))
+summary(koala.model)
 ##three types of response plots
 plot(koala.model, type = "exponential")
-
 plot(koala.model, type = "cloglog")
-
 plot(koala.model, type = "logistic")
 
 
-model= maxent(habitat.rr, selected.loc) #note we just using the training data
+gg=predict(habitat.rr,koala.model, response=TRUE)
+plot(gg)
+# ps <- unscale(gg,habitat.rr)
+# pp=unscale(gg, center = NULL, scale = NULL)
+# plot(ps)
+
+gg=predict(habitat.rr,mod, response=TRUE)
+ggg<- logit.prob(gg)
+plot(ggg)
+
+
+
+
+# using maxent library????
+
+fold <- kfold(selected.loc, k=5) # add an index that makes five random groups of observations
+selected.loctest <- selected.loc[fold == 1, ] # hold out one fifth as test data
+selected.loctrain <- selected.loc[fold != 1, ] # the other four fifths are training data
+
+selected.loctrain<- maxent::as.compressed.matrix(selected.loctrain)
+habitat.r <- getValues(habitat.rr)
+habitat.r = na.omit(habitat.r)
+habitat.r <- maxent::as.compressed.matrix(habitat.r)
+
+modelMax=maxnet::maxnet(habitat.r, selected.loctrain) #note we just using the training data
+
+####============== Test code. delete aafter being run.
+

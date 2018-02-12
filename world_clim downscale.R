@@ -69,7 +69,7 @@ australia0 <- raster::getData('GADM', country="AUS", level=1)
 
 CRS("+init=epsg:28356")
 
-
+plot(elev)
 
 plot(australia0, add=TRUE)
 
@@ -80,12 +80,30 @@ austria0 <- getData('GADM', country='AUS', level=0)
 # Specify level: The third argument specifies the level of of administrative subdivision (0=country, 1=first level subdivision).
 
 
-climate <- getData('worldclim', var='bio', res=2.5)
+climate <- raster::getData('worldclim', var='bio', res=0.5,lon=150, lat=0)
 # Select Dataset: The first argument specifies the dataset. 'worldclim' returns the World Climate Data.
 # Select variable: The second argument specifies the variable: 'tmin', 'tmax', 'prec' and 'bio' (more info here).
 # Specify resolution:  0.5, 2.5, 5, and 10 (minutes of a degree). In the case of res=0.5, you must also provide a lon and lat argument for a tile
 
+writeRaster(climate, filename = names(climate), bylayer= TRUE, format("GTiff"), overwrite=TRUE)
 
+studyarea <- readShapePoly("C:/Users/uqrdissa/ownCloud/Covariates_analysis/Mark_S/raster_syn/warton_data/AU_Qld_extended_study_area_mask-wgs84.shp")
+plot(studyarea)
+proj4string(studyarea) <- CRS("+init=epsg:4326") 
+studyarea=spTransform(studyarea, crs(climate))
+#raster crop to extent of studyarea
+climatec <- crop(climate,extent(studyarea), snap="out")
+plot(climatec$bio1_311)
+plot(studyarea, add = TRUE)
+climate.new<- mask(climatec, studyarea)
+plot(climate.new$bio1_311)
+
+awc <- raster("C:/Users/uqrdissa/ownCloud/Covariates_analysis/Mark_S/raster_syn/warton_data/awc.tif")
+
+climate.vars=spatial_sync_raster(climate.new,awc)
+
+writeRaster(climate.vars, filename = names(climate.vars), bylayer= TRUE, format("GTiff"), overwrite=TRUE)
+###location written was: (C:/Users/uqrdissa/ownCloud/Covariates_analysis/Mark_S/raster_syn/warton_data/climate_data_unscale)
 
 ####### SRTM 90 Elevation#######
 # Last but not least, lets have a look at the SRTM 90 Data. We will use the getData() function one last time:
