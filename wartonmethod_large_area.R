@@ -93,7 +93,7 @@ plot(myfullstack.b)
 myextent=c(387900, 553100, 6862400, 7113600) 
 habitat.rr=crop(myfullstack.b, myextent, snap="near")
 
-habitat.rr<- subset(habitat.rr, c(1,2,15,18,26,33,39,41)) # select my variables
+habitat.rr<- subset(habitat.rr, c(1,2,15,18,26,34,39,41)) # select my variables
 
 
 ######Step 3. Create quadrature points and species xy data. Remove NA. Keep xy colomns for preditions and rasterize. ######
@@ -168,7 +168,7 @@ plot(LGA.shp, add=TRUE)
 #####step 5: Models: Enviromental only. Test using different env variables.
 #                   Enviromental and distance variables
 #                   Bias corrected.
-
+#poly() lets you avoid corelation by producing orthogonal polynomials,
 #Model 1:  Enviromental varibales only
 #ppm.1 = ~ poly(clay,elev,fpcnew,fpcnew_buff, nitro,sbd,AnnualMeanTemperature,AnnualPrecipitation,tpo,twi,habit1decimal,degree = 1, raw = TRUE)
 ppm.1 = ~ poly(clay
@@ -191,6 +191,11 @@ ppm.1 = ~ poly(Annual_Mean_Temperature
                ,fpcnew
                ,degree = 2, raw = TRUE)
 
+ #####========================
+
+
+
+# p=glmnet(X.des, Pres, family =  "binomial")
 
 
 scales = c( 0.5, 1, 2, 4, 8,16,32)
@@ -423,7 +428,7 @@ av.grid=rasterToPolygons("available_grdBris.shp")
 
 available_grdBris.shp
 
-X.des=Press[,4:11]
+X.des=Press[,4:10]
 
 # set same distance level to distance covariate as in lasso method.
 
@@ -521,6 +526,7 @@ p.wt = rep(1.e-6, length(Pres))
 X.des <- X.des[,-6]
 p.wt[Pres == 0] = 44415/sum(Pres == 0)
 dwpr = glm(Pres/p.wt ~ X.des, family = poisson(), weights = p.wt)
+#poly(X.des, degree=3, raw=TRUE)
 
 # check coefficents 
 dwpr$coefficients
@@ -702,7 +708,9 @@ IPP.ignored=glm(presence~Annual_Mean_Temperature
                 + fpcnew
                 ,family="binomial",weights=100000^(1-presence),data=IPP.data) # IPP.data2 added.
 
-
+######poly(Annual_Mean_Temperature, degree=3, raw =TRUE)+ poly(Annual_Precipitation, degree= 3, raw= TRUE)
+# plot(IPP.ignored)
+# plot(fitted(IPP.ignored),residuals(IPP.ignored))
 
 summary(IPP.ignored)
 detecPress.gk=subset(Detection.data, select=c(-2))
@@ -1463,6 +1471,7 @@ graphics.off()
 
 ##### Maxent model===============
 ## we use same datasets and criteria. import data and select in the same manner we did for previous analysis.
+## Maxnet is an R package that for fitting Maxent species distribution models using the R package glmnet.
 
 load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala//mydatasighting_cleaned.RData")
 mydata <- mydatasighting_cleaned
@@ -1537,10 +1546,14 @@ data = na.omit(data)
 #we run the maxnet function to fit the SDM
 #maxnet fits using glmnet
 loc = sdmdata$presabs
-koala.model<-maxnet(loc, data) 
+koala.model<-maxnet(loc, data,maxnet.formula(loc, data, classes="lq")) 
 
-
-
+# Default choices for feature classes and regularization.
+#  The second call overrides the default feature classes, using only linear and
+# quadratic features for the continuous predictor variables.
+####
+#fits Maxent models using the same feature classes
+#(linear, quadratic, hinge, etc.) and regularization
  #mod <- maxnet(loc, data, maxnet.formula(loc, data, classes="default"))
 summary(koala.model)
 ##three types of response plots
@@ -1548,6 +1561,8 @@ plot(koala.model, type = "exponential")
 plot(koala.model, type = "cloglog")
 plot(koala.model, type = "logistic")
 
+plot(koala.model, "fpcnew")
+plot(koala.model, "Annual_Mean_Temperature")
 
 gg=predict(habitat.rr,koala.model, response=TRUE)
 plot(gg)
@@ -1562,18 +1577,47 @@ plot(ggg)
 
 
 
-# using maxent library????
+###### For Maxent  software coordinates in latitude and longitude.
+###### Rasters also in same crs.
 
-fold <- kfold(selected.loc, k=5) # add an index that makes five random groups of observations
-selected.loctest <- selected.loc[fold == 1, ] # hold out one fifth as test data
-selected.loctrain <- selected.loc[fold != 1, ] # the other four fifths are training data
+myInPtDF = SpatialPointsDataFrame(selected.locations[c("X","Y")],selected.locations)
+# Set the projection of the input spatial dataframe
+myInProj = CRS("+init=epsg:28356")
+proj4string(myInPtDF) = myInProj
+# Verify by plotting the coordinates
+plot(myInPtDF, axes = T)
+# Set the projection of the output spatial dataframe
+myOutProj = CRS("+proj=longlat +ellps=WGS84") # UTM zone 45
+# Makes the conversion
+myOutPtDF = spTransform(myInPtDF, myOutProj)
+plot(myOutPtDF)
+selected.locations$LATITUDE = myOutPtDF@coords[,1]
+selected.locations$LONGITUDE = myOutPtDF@coords[,2]
 
-selected.loctrain<- maxent::as.compressed.matrix(selected.loctrain)
-habitat.r <- getValues(habitat.rr)
-habitat.r = na.omit(habitat.r)
-habitat.r <- maxent::as.compressed.matrix(habitat.r)
+select.maxent <- selected.locations[c(3,4)]
+select.maxent $SPECIES <- "koala"
+select.maxent <- select.maxent[c(3,2,1)]
+write.csv(select.maxent, "select.maxent.csv",row.names=FALSE)
 
-modelMax=maxnet::maxnet(habitat.r, selected.loctrain) #note we just using the training data
+write.csv(selected.locations, "selected.locations.csv")
 
-####============== Test code. delete aafter being run.
+myfullstack.b <- list.files(path="warton_data_allclimate",pattern="\\.tif$",full.names=TRUE)
+myfullstack.b = scale(stack(myfullstack.b))
+plot(myfullstack.b)
+myextent=c(387900, 553100, 6862400, 7113600) 
+habitat.rr=crop(myfullstack.b, myextent, snap="near")
+
+habitat.rr<- subset(myfullstack.b, c(1,2,15,18,26,34,39,41)) # select my variables
+
+
+habitat.rr
+myfullstack.bb <- list.files(pattern="\\.asc$",full.names=TRUE)
+myfullstack.bb = scale(stack(myfullstack.bb))
+
+
+projection(habitat.rr) <- CRS("+init=epsg:28356")
+# Reproject
+wgs<-"+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0"
+habitat.rrmaxent <- projectRaster(myfullstack.bb, crs = wgs)
+writeRaster(habitat.rr, filename = names(habitat.rr), bylayer = TRUE, format= "GTiff")
 
