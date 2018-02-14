@@ -1578,7 +1578,60 @@ plot(ggg)
 
 
 ###### For Maxent  software coordinates in latitude and longitude.
-###### Rasters also in same crs.
+# distance not set among locations
+all.locations$species <- "koala"
+colnames(all.locations)[2] <- 'latitude'
+colnames(all.locations)[1] <- 'longitude'
+all.locations <- all.locations[c(3,1,2)]
+write.csv(all.locations, "all.locations.csv",row.names=FALSE )
+
+#### create rasters in ascii format.#####
+
+myfullstack.b <- list.files(path="warton_data_allclimate",pattern="\\.tif$",full.names=TRUE)
+myfullstack.b = scale(stack(myfullstack.b))
+plot(myfullstack.b)
+myextent=c(387900, 553100, 6862400, 7113600) 
+habitat.rr=crop(myfullstack.b, myextent, snap="near")
+
+habitat.rr<- subset(myfullstack.b, c(1,2,15,18,26,34,39,41)) # select my variables
+writeRaster(habitat.rr, filename = names(habitat.rr), bylayer = TRUE, format= "asc")
+
+### run maxent from programe. Output asc file is read and mapped.
+#setwd("C:/Users/uqrdissa/ownCloud/Covariates_analysis/Mark_S/raster_syn/warton_data/Maxent_data/results3"
+
+koala=raster("koala_1.asc")
+plot(koala, main = "bias not corrected")
+
+##### bias correction needs distance rasters set to minimum distance. #####
+distance_primaryandlink= raster("distance_primaryandlink.asc")
+d=as.data.frame(distance_primaryandlink)
+distance_primaryandlink1=(distance_primaryandlink*0)+-1.412223
+plot(distance_primaryandlink1)
+
+writeRaster(distance_primaryandlink1, "distance_primaryandlink1.asc")
+
+distance_motorwayandlink= raster("distance_motorwayandlink.asc")
+d=as.data.frame(distance_motorwayandlink)
+distance_motorwayandlink1=(distance_motorwayandlink*0)+-1.435722
+plot(distance_motorwayandlink1)
+writeRaster(distance_motorwayandlink1, "distance_motorwayandlink1.asc")
+
+koala.unbias=raster("koala_1.asc")
+plot(koala.unbias, main = " bias corrected")
+
+par(mfrow=c(1,2))
+
+##### gird sample is not required.####
+selected.locations=gridSample(selected.locations, myfullstack.b, n = 1)
+selected.locations$species <- "koala"
+colnames(selected.locations)[2] <- 'latitude'
+colnames(selected.locations)[1] <- 'longitude'
+selected.locations <- selected.locations[c(3,1,2)]
+write.csv(selected.locations, "selected.locations.csv",row.names=FALSE )
+koala=raster("koala_9.asc")
+plot(koala)
+
+##### as lat long conversionif required.######
 
 myInPtDF = SpatialPointsDataFrame(selected.locations[c("X","Y")],selected.locations)
 # Set the projection of the input spatial dataframe
@@ -1597,27 +1650,9 @@ selected.locations$LONGITUDE = myOutPtDF@coords[,2]
 select.maxent <- selected.locations[c(3,4)]
 select.maxent $SPECIES <- "koala"
 select.maxent <- select.maxent[c(3,2,1)]
+
+loc=SpatialPoints((selected.locations))
+
 write.csv(select.maxent, "select.maxent.csv",row.names=FALSE)
 
-write.csv(selected.locations, "selected.locations.csv")
-
-myfullstack.b <- list.files(path="warton_data_allclimate",pattern="\\.tif$",full.names=TRUE)
-myfullstack.b = scale(stack(myfullstack.b))
-plot(myfullstack.b)
-myextent=c(387900, 553100, 6862400, 7113600) 
-habitat.rr=crop(myfullstack.b, myextent, snap="near")
-
-habitat.rr<- subset(myfullstack.b, c(1,2,15,18,26,34,39,41)) # select my variables
-
-
-habitat.rr
-myfullstack.bb <- list.files(pattern="\\.asc$",full.names=TRUE)
-myfullstack.bb = scale(stack(myfullstack.bb))
-
-
-projection(habitat.rr) <- CRS("+init=epsg:28356")
-# Reproject
-wgs<-"+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0"
-habitat.rrmaxent <- projectRaster(myfullstack.bb, crs = wgs)
-writeRaster(habitat.rr, filename = names(habitat.rr), bylayer = TRUE, format= "GTiff")
-
+####
