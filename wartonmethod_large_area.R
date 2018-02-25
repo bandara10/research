@@ -1577,7 +1577,7 @@ plot(ggg)
 
 
 
-###### For Maxent  software coordinates in latitude and longitude.
+###### For Maxent  software coordinates in latitude and longitude.####
 # distance not set among locations
 all.locations$species <- "koala"
 colnames(all.locations)[2] <- 'latitude'
@@ -1620,6 +1620,46 @@ koala.unbias=raster("koala_1.asc")
 plot(koala.unbias, main = " bias corrected")
 
 par(mfrow=c(1,2))
+
+##### Get outputs from maxent to preare roc curve.
+library(ROCR)
+library(vcd)
+library(boot)
+
+###setwd("C:/Users/uqrdissa/ownCloud/Covariates_analysis/Mark_S/raster_syn/warton_data/Maxent_data/results5_biascorrrect")
+presence <- read.csv("koala_samplePredictions.csv")
+background <- read.csv("koala_backgroundPredictions.csv")
+pp <- presence$Logistic.prediction  # get the column of predictions
+
+testpp <- pp[presence$Test.or.train=="test"] # select only test points
+trainpp <- pp[presence$Test.or.train=="train"] # select only test points
+bb <- background$Logistic
+
+###now ROC
+combined <- c(testpp, bb)
+label <- c(rep(1,length(testpp)),rep(0,length(bb))) # labels: 1=present, 0=random
+pred <- prediction(combined, label)
+perf <- performance(pred, "tpr", "fpr")
+plot(perf, colorize=TRUE)
+# combine into a single vector
+# labeled predictions
+# True / false positives, for ROC curve
+# Show the ROC curve
+performance(pred, "auc")@y.values[[1]] # Calculate the AUC
+
+##make a bootstrap estimate of the standard deviation of the AUC.
+AUC <- function(p,ind) {
+  pres <- p[ind]
+  combined <- c(pres, bb)
+  label <- c(rep(1,length(pres)),rep(0,length(bb)))
+  predic <- prediction(combined, label)
+  return(performance(predic, "auc")@y.values[[1]])
+}
+b1 <- boot(testpp, AUC, 100) # do 100 bootstrap AUC calculations
+b1 # gives estimates of standard error and bias
+
+#Bootstrap results can also be used to determine confidence intervals for the AUC:
+boot.ci(b1)
 
 ##### gird sample is not required.####
 selected.locations=gridSample(selected.locations, myfullstack.b, n = 1)
