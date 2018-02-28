@@ -1,6 +1,6 @@
 #### Load libraries ####
 library(maptools); library(sp); library(raster); library(rgdal); library(spatstat); library(ggplot2)
-library(spatialkernel); library(splancs); library(RColorBrewer); library(dismo); library(spatstat.utils)
+library(spatialkernel); library(splancs); library(RColorBrewer); library(dismo); library(spatstat.utils);library(usdm)
 
 ###Objectives ####
 # 1. Identify which variables to select for the model by Rhohat
@@ -90,7 +90,7 @@ points(x = selected.locations$X, y = selected.locations$Y)
 #points(x=all.locations$X, y= all.locations$Y)
 #### select one from grid.
 
-myfullstack.b <- list.files(path="warton_data_allclimate",pattern="\\.tif$",full.names=TRUE)
+myfullstack.b <- list.files(path="spatstatmodel",pattern="\\.tif$",full.names=TRUE)
 myfullstack.b = stack(myfullstack.b)
 names(myfullstack.b)
 #plot(myfullstack.b,1)
@@ -98,11 +98,12 @@ names(myfullstack.b)
 myextent=studyarea.shp
 habitat.rr=crop(myfullstack.b, myextent, snap="near")
 habitat.rr <- scale(habitat.rr)
-library(usdm)
+
 vifstep(habitat.rr, th=10)
 # mydata.r <- raster(studyarea.shp)
 # res(mydata.r) <- 1000
 # mydata.r <- extend(mydata.r, extent(mydata.r) + 1000)#extenet should be similar to the selected area not the full dataset
+set.seed(123)
 selected.locations=gridSample(all.locations, habitat.rr, n = 2)# disaggregate a raster factor 4 and get one point.
 selected.locations <- as.data.frame(selected.locations)
 plot(selected.locations)
@@ -205,12 +206,12 @@ habitat.rr <- scale(habitat.rr)
 # Convert rasters into a spatstat image object=================================================================================================================================
 ##Rhohat fpcnew ####
 fpc.im <- as.im(habitat.rr$fpcnew )
-amt.im <- as.im(habitat.rr$AnnualMeanTemperature)
-apt.im <- as.im(habitat.rr$AnnualPrecipitation)
-mtwm.im <- as.im(habitat.rr$Max_Temperature_of_Warmest_Month)
-mtcm.im <- as.im(habitat.rr$Min_Temperature_of_Coldest_Month)
-pdm.im <- as.im(habitat.rr$Precipitation_of_Driest_Month)
-pwm.im <- as.im(habitat.rr$Precipitation_of_Wettest_Month)
+# amt.im <- as.im(habitat.rr$AnnualMeanTemperature)
+# apt.im <- as.im(habitat.rr$AnnualPrecipitation)
+# mtwm.im <- as.im(habitat.rr$Max_Temperature_of_Warmest_Month)
+# mtcm.im <- as.im(habitat.rr$Min_Temperature_of_Coldest_Month)
+# pdm.im <- as.im(habitat.rr$Precipitation_of_Driest_Month)
+# pwm.im <- as.im(habitat.rr$Precipitation_of_Wettest_Month)
 awc.im <- as.im(habitat.rr$awc)
 elev.im <- as.im(habitat.rr$elev)
 clay <- as.im(habitat.rr$clay)
@@ -218,27 +219,23 @@ nitro.im  <- as.im(habitat.rr$nitro)
 citydis.im <- as.im(habitat.rr$city_dis)
 sbd.im  <- as.im(habitat.rr$sbd)
 roughness.im <- as.im(habitat.rr$roughness)
-tpo.im  <- as.im(habitat.rr$tpo)
-twi.im  <- as.im(habitat.rr$twi)
+# tpo.im  <- as.im(habitat.rr$tpo)
+# twi.im  <- as.im(habitat.rr$twi)
 hpop.im <- as.im(habitat.rr$hpop)
 habit3.im  <- as.im(habitat.rr$habit3decimal)
 habit2.im  <- as.im(habitat.rr$habit2decimal)
 habit1.im  <- as.im(habitat.rr$habit1decimal)
-habitdis2.im <- as.im(habitat.rr$Dis_habitat_suitable_2)
-roadsM.im  <- as.im(habitat.rr$roads_motor)
-roadsother.im  <- as.im(habitat.rr$roads_other)
+# habitdis2.im <- as.im(habitat.rr$Dis_habitat_suitable_2)
+# roadsM.im  <- as.im(habitat.rr$roads_motor)
+# roadsother.im  <- as.im(habitat.rr$roads_other)
 dmwl.im <- as.im(habitat.rr$distance_motorwayandlink)
 dprl.im <- as.im(habitat.rr$distance_primaryandlink)
 #Poisson point process model =================================================================================================================================
 predList=list(fpc = fpc.im
-     ,mtcm = mtcm.im
-     ,mtwm = mtwm.im 
-     ,pdm=pdm.im
-     ,pwm=pwm.im
-     ,apt = apt.im
+     
      ,awc =awc.im
      ,elev= elev.im
-     , roughness= roughness.im
+     ,roughness= roughness.im
      ,nitro= nitro.im
      ,sbd= sbd.im
      ,tpo= tpo.im
@@ -248,9 +245,6 @@ predList=list(fpc = fpc.im
      ,habit3 = habit3.im
      ,habit2 = habit2.im
      ,habit1 = habit1.im
-     ,habitdis2 = habitdis2.im
-     ,roadsM = roadsM.im
-     ,roadsother= roadsother.im
      ,dprl=dprl.im
      ,dmwl= dmwl.im)
 # Null model:
@@ -270,8 +264,25 @@ plot(Qz)
 # This step will drop points within the quadrature scheme that had NA-values.
 
 ####### Saturated model:#### 
-dat.ppm01 <- step(ppm(Qz, trend = ~ roughness+roadsother+fpc+mtcm + mtwm+pwm+pdm
-                      + awc +citydis+ elev+ nitro+ sbd + tpo+ twi+ roadsother+ hpop+habitdis2+habit2, covariates = predList)) #+ roadsM + roadsother
+dat.ppm01 <- step(ppm(Qz, trend = ~ fpc+citydis
+                      + awc + elev+ nitro+ sbd + tpo+ twi+ hpop+habit1+habit2+habit3+dprl,covariates = predList)) #+ roadsM + roadsother
+# Estimate        S.E.       CI95.lo     CI95.hi Ztest        Zval
+# (Intercept) -17.89636094 0.061275733 -1.801646e+01 -17.7762627   *** -292.062780
+# elev         -1.69757834 0.072997905 -1.840652e+00  -1.5545051   ***  -23.255165
+# dprl         -0.81895297 0.053805661 -9.244101e-01  -0.7134958   ***  -15.220573
+# citydis      -0.27893751 0.032338545 -3.423199e-01  -0.2155551   ***   -8.625543
+# tpo          -0.10470027 0.028988172 -1.615160e-01  -0.0478845   ***   -3.611827
+# fpc           0.05501796 0.027654066  8.169829e-04   0.1092189     *    1.989507
+# awc           0.09811207 0.048502497  3.048919e-03   0.1931752     *    2.022825
+# habit1        0.06683203 0.030034659  7.965183e-03   0.1256989     *    2.225164
+# habit3        0.09571611 0.022103409  5.239422e-02   0.1390380   ***    4.330378
+# habit2        0.16583757 0.022129926  1.224637e-01   0.2092114   ***    7.493815
+# nitro         0.31975717 0.036986334  2.472653e-01   0.3922490   ***    8.645279
+# hpop          0.12275546 0.008701996  1.056999e-01   0.1398111   ***   14.106587
+#dat.ppm011 <- ppm(Qz, trend = ~ fpc+citydis
+ #                    + awc + elev+ nitro+ tpo+  hpop+habit1+habit2+habit3+dprl,interaction =  Strauss(5000),covariates = predList) #+ roadsM 
+
+
 # m1 <- ppm(Qz ~ polynom(elev,mtwm ,2),covariates = predList)
 
 diagnose.ppm(dat.ppm01)
@@ -287,16 +298,45 @@ AIC(dat.ppm01) # 3466.415
 
 ###plot
 pred <- predict(dat.ppm01, type="trend") # ngrids smooth the map.
-pred=pred*1E04
+pred=pred*1E06
 pred.grid <- as(pred,"SpatialGridDataFrame")
 pred.r=raster(pred.grid)
 plot(pred.r)
-writeRaster(pred.r, "C:/Users/uqrdissa/ownCloud/Covariates_analysis/Mark_S/pred01.tif",overwrite=TRUE)
-######==========
+writeRaster(pred.r, "C:/Users/uqrdissa/ownCloud/Covariates_analysis/Mark_S/pred014.tif",overwrite=TRUE)
 
 
+### standard erros
+se <- predict.ppm(dat.ppm01, se=TRUE, interval = c("confidence"))
+sse=se$se
+sse=sse*1E06
+sse.grid <- as(sse,"SpatialGridDataFrame")
+sse.r=raster(sse.grid)
+plot(sse.r)
+writeRaster(sse.r, "C:/Users/uqrdissa/ownCloud/Covariates_analysis/Mark_S/pred014sse.tif",overwrite=TRUE)
 
-plot(pred* 1E06) #Express predicted koala intensity in terms of the number of koalas per square kilometer
+
+plot(sse)
+######CI Upper==========
+ciu <- predict.ppm(dat.ppm01,interval = c("confidence"), level = 0.95)
+ciiu=ci$`97.5%`
+ciiu=ciiu* 1E06
+ciiu.grid <- as(ciiu,"SpatialGridDataFrame")
+ciiu.r=raster(ciiu.grid)
+plot(ciiu.r)
+writeRaster(ciiu.r, "C:/Users/uqrdissa/ownCloud/Covariates_analysis/Mark_S/pred01ciiu.tif",overwrite=TRUE)
+
+###### CI Lower
+ciL <- predict.ppm(dat.ppm01,interval = c("confidence"), level = 0.95)
+ciiL=ciL$`2.5%`
+ciiL=ciiL* 1E06
+ciiL.grid <- as(ciiL,"SpatialGridDataFrame")
+ciiL.r=raster(ciiL.grid)
+plot(ciiL.r)
+writeRaster(ciiL.r, "C:/Users/uqrdissa/ownCloud/Covariates_analysis/Mark_S/pred01ciiL.tif",overwrite=TRUE)
+
+
+#########
+
 
 pred1 <- pred* 1E06
 max(pred1)
@@ -318,25 +358,49 @@ diagnose.ppm(dat.ppm01,which = "smooth")### ,which = "smooth"
 eem <- envelope(dat.ppp,Kinhom,funargs = list(lambda=dat.ppm01),global=TRUE)
 # plot(eem)
 #clustered poisson point process models
-dat.ppm02 <- kppm (Qz, trend = ~ fpc +  mtcm + mtwm + apt + awc + elev+ nitro+ sbd + tpo+ twi+ roadsother+ hpop+habitdis2 
-                             ,covariates = predList) #+ roadsM + roadsother
-coef(dat.ppm02)
+dat.ppm02 <- kppm (Qz, trend = ~ fpc+citydis+ awc + elev+ nitro+ sbd + tpo+ twi+ hpop+habit1+habit2+habit3+dprl 
+                   ,clusters = "Thomas",covariates = predList) #+ roadsM + roadsother
 
-test=predict.kppm(dat.ppm02,ngrid=200)
-test.t=test* 1E06
-plot(test.t)
+##model summary
+summary(dat.ppm02)$coefs.SE.CI
+tdat2<- data.frame(summary(dat.ppm02)$coefs.SE.CI)
+tdat2[order(tdat2$Zval),] 
+AIC(dat.ppm02) # 3466.415
 
-
+predk=predict.kppm(dat.ppm02,ngrid=200)
+predk=predk* 1E06
+plot(predk)
 
 ######## write raster to plot in arcgis
-test.grid <- as(test.t,"SpatialGridDataFrame")
-test.r=raster(test.grid)
-writeRaster(test.r, "C:/Users/uqrdissa/ownCloud/Covariates_analysis/Mark_S/test.tif",overwrite=TRUE)
+predk.grid <- as(predk,"SpatialGridDataFrame")
+predk.grid.r=raster(predk.grid)
+plot(predk.grid.r)
+writeRaster(predk.grid.r, "C:/Users/uqrdissa/ownCloud/Covariates_analysis/Mark_S/predkppm.tif",overwrite=TRUE)
+
+
+### standard erros
+se2 <- predict(dat.ppm02, se=TRUE)
+sse2=se2$se
+sse2=sse2*1E06
+sse2.grid <- as(sse2,"SpatialGridDataFrame")
+sse2.r=raster(sse2.grid)
+plot(sse2.r)
+writeRaster(sse2.r, "C:/Users/uqrdissa/ownCloud/Covariates_analysis/Mark_S/predkkpmse.tif",overwrite=TRUE)
+
+
+plot(sse)
+
+
+
+
+
+
+
 ######==========
 
-plot(dat.ppm02,what="statistic",pause=FALSE)
-pred2 <- predict(dat.ppm02, type="trend",ngrid=200) # ngrids smooth the map.
-plot(pred* 1E06)
+# plot(dat.ppm02,what="statistic",pause=FALSE)
+# pred2 <- predict(dat.ppm02, type="trend",ngrid=200) # ngrids smooth the map.
+# plot(pred* 1E06)
 
 
 ###### Now add a Geyer spatial interaction term:#####
@@ -354,7 +418,7 @@ diagnose.ppm(dat.ppm03)
 
 ######## QQ plot of residuals from fitted model. Useful for checking distributional assumptions, particularly assumptions##
 ##re spatial dependence. Careful - this takes ages to run. To reduce time, set nsim to 10.
-dat.qq03 <- qqplot.ppm(fit = dat.ppm07, nsim = 10)
+dat.qq03 <- qqplot.ppm(fit =dat.ppm01, nsim = 10)
 plot(dat.qq03, xlab = "Raw residuals: mean quantile of simulations", ylab = "Data quantile")
 # epi.saveplot("ZM_fmd_ppm04_qqplot")
 # Observed values don't completely lie within the boundaries of the simulation envelopes.
