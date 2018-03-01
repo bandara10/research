@@ -33,7 +33,7 @@ myalldata=rbind(mydata, mydata2,mydata3)
 table(myalldata$yearnew)
 
 #myalldata[!duplicated(myalldata$X &myalldata$Y), ]
-all.locations= subset(myalldata,yearnew >1998, select=X:Y)
+all.locations= subset(myalldata,yearnew >2005, select=X:Y)
 pp=SpatialPoints(all.locations)
 
 ##### Stratified sampling #####
@@ -46,17 +46,34 @@ d=do.call('rbind', df2) #merged into 1 data.frame
 
 ####### Select records based on distance######
 
-source("Lib_DistEstimatesToItself.r")## set a minimum distance between koalas
-all.locations$disttoitself = Lib_DistEstimatesToItself(all.locations$X, all.locations$Y)
-select.locations = subset(all.locations, all.locations$disttoitself > 1)
-selected.locations = select.locations[,1:2]
-mydata.ll=SpatialPoints(selected.locations)
-proj4string(mydata.ll) <- CRS("+init=epsg:28356") 
+# source("Lib_DistEstimatesToItself.r")## set a minimum distance between koalas
+# all.locations$disttoitself = Lib_DistEstimatesToItself(all.locations$X, all.locations$Y)
+# select.locations = subset(all.locations, all.locations$disttoitself > 1)
+# selected.locations = select.locations[,1:2]
+# mydata.ll=SpatialPoints(selected.locations)
+# proj4string(mydata.ll) <- CRS("+init=epsg:28356") 
+
+### Step 01: Bring in distance rasters #####
+
+myfullstack.b <- list.files(path="C:/Users/uqrdissa/ownCloud/Covariates_analysis/Mark_S/raster_syn/warton_data/warton_data_allclimate/distance_vars",pattern="\\.tif$",full.names=TRUE)
+myfullstack.b = stack(myfullstack.b)
+plot(myfullstack.b,2)
+names(myfullstack.b)
+# myextent=c(387900, 553100, 6862400, 7113600) 
+studyarea.shp <- readShapePoly("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_syn\\warton_data\\warton_data_allclimate\\ss_area.shp")
+proj4string(studyarea.shp) <- CRS("+init=epsg:28356") 
+
+myextent=studyarea.shp
+habitat.rr=crop(myfullstack.b, myextent, snap="near")
+names(habitat.rr)
+habitat.r<- subset(habitat.rr, c(1:2)) # select my variables
+#plot(habitat.rr)
+set.seed(123)
+selected.locations=gridSample(all.locations, habitat.r, n = 1)
+
 
 ######### Bring in MGA56 square study area boundary map:######
 
-studyarea.shp <- readShapePoly("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_syn\\warton_data\\warton_data_allclimate\\ss_area.shp")
-proj4string(studyarea.shp) <- CRS("+init=epsg:28356") 
 
 # detail study area
 
@@ -101,23 +118,10 @@ dat.ppp <- ppp(x = selected.locations[,1], y = selected.locations[,2], window = 
 plot(dat.ppp, axes = TRUE)
 
 
-### Step 01: Bring in distance rasters #####
-
-myfullstack.b <- list.files(path="C:/Users/uqrdissa/ownCloud/Covariates_analysis/Mark_S/raster_syn/warton_data/warton_data_allclimate/distance_vars",pattern="\\.tif$",full.names=TRUE)
-myfullstack.b = scale(stack(myfullstack.b))
-plot(myfullstack.b,2)
-names(myfullstack.b)
-# myextent=c(387900, 553100, 6862400, 7113600) 
-myextent=studyarea.shp
-habitat.rr=crop(myfullstack.b, myextent, snap="near")
-
-habitat.rr<- subset(habitat.rr, c(1:2)) # select my variables
-plot(habitat.rr)
-
 
 # Rhohat distance_vars Convert rasters into a spatstat image object=================================================================================================================================
 
-#distance_motorwayandlink==================================================================================================================================
+#step 1distance_motorwayandlink==================================================================================================================================
 dmwl.im <- as.im(habitat.rr$distance_motorwayandlink)
 plot(dmwl.im )
 
@@ -284,15 +288,15 @@ plot(ds3_unclass.rho, xlab = "s3_unclassified_dist(units)", main = "")
 ###Step 02:  Bring in climate rasters #####
 
 myfullstack.c <- list.files(path="C:/Users/uqrdissa/ownCloud/Covariates_analysis/Mark_S/raster_syn/warton_data/warton_data_allclimate/climate_vars",pattern="\\.tif$",full.names=TRUE)
-myfullstack.c = scale(stack(myfullstack.c))
+myfullstack.c = stack(myfullstack.c)
 plot(myfullstack.c,2)
 names(myfullstack.c)
 # myextent=c(387900, 553100, 6862400, 7113600) 
 myextent=studyarea.shp
 habitat.rr=crop(myfullstack.c, myextent, snap="near")
 
-climate.rr<- subset(habitat.rr, c(1:2)) # select my variables
-plot(habitat.rr)
+habitat.r<- subset(habitat.rr, c(1:2)) # select my variables
+plot(habitat.r)
 
 #Annual_Mean_Temperature==================================================================================================================================
 amt.im <- as.im(habitat.rr$Annual_Mean_Temperature)
@@ -302,6 +306,9 @@ plot(amt.im )
 amt.rho <- rhohat(object = dat.ppp, covariate = amt.im)
 plot(amt.rho, xlab = "Annual_Mean_Temperature (units)", main = "")
 
+plot(amt.rho, xlim = c(100, 120), xlab = "Annual_Mean_Temperature (metres)", main = "")
+
+
 #Annual_Precipitation==================================================================================================================================
 apt.im <- as.im(habitat.rr$Annual_Precipitation)
 plot(apt.im )
@@ -310,21 +317,13 @@ plot(apt.im )
 apt.rho <- rhohat(object = dat.ppp, covariate = apt.im)
 plot(apt.rho, xlab = "Annual_Precipitation (units)", main = "")
 
-#Isothermality (Temperature annual range)==================================================================================================================================
-isoT.im <- as.im(habitat.rr$Isothermality)
-plot(isoT.im )
-
-# What is the nature of the association between koala sight locations and total phosphorous?
-isoT.rho <- rhohat(object = dat.ppp, covariate = isoT.im)
-plot(isoT.rho, xlab = "Isothermality (units)", main = "")
-
 #Max_Temperature_of_Warmest_Month"    (Temperature annual range)==================================================================================================================================
 mtwm.im <- as.im(habitat.rr$Max_Temperature_of_Warmest_Month)
 plot(mtwm.im )
 
 # What is the nature of the association between koala sight locations and total phosphorous?
 mtwm.rho <- rhohat(object = dat.ppp, covariate = mtwm.im)
-plot(mtwm.rho, xlab = "Max_Temperature_of_Warmest_Month (units)", main = "")
+plot(mtwm.rho, xlim = c(140, 200),xlab = "Max_Temperature_of_Warmest_Month (units)", main = "")
 
 #Mean_Diurnal_Range_    (Temperature annual range)==================================================================================================================================
 meanDiuR.im <- as.im(habitat.rr$Mean_Diurnal_Range_)
@@ -500,7 +499,7 @@ plot(fpcnew.im )
 
 # What is the nature of the association between koala sight locations and total phosphorous?
 fpcnew.rho <- rhohat(object = dat.ppp, covariate = fpcnew.im)
-plot(fpcnew.rho, xlab = "fpcnew(units)", main = "")
+plot(fpcnew.rho,xlim = c(10, 90), xlab = "fpcnew(units)", main = "")
 
 ##habit1decimal ==================================================================================================================================
 habit1decimal.im <- as.im(habitat.rr$habit1decimal)
@@ -532,7 +531,7 @@ plot(hpop.im )
 
 # What is the nature of the association between koala sight locations and total phosphorous?
 hpop.rho <- rhohat(object = dat.ppp, covariate = hpop.im)
-plot(hpop.rho, xlab = "hpop(units)", main = "") 
+plot(hpop.rho,xlim=c(3000,7000), xlab = "hpop(units)", main = "") 
 
 ##lot_density ==================================================================================================================================
 lot_density.im <- as.im(habitat.rr$lot_density)
@@ -540,7 +539,7 @@ plot(lot_density.im )
 
 # What is the nature of the association between koala sight locations and total phosphorous?
 lot_density.rho <- rhohat(object = dat.ppp, covariate = lot_density.im)
-plot(lot_density.rho,xlim = c(0, 1000),ylim = c(0, 0.00001), xlab = "lot_density(units)", main = "") 
+plot(lot_density.rho,xlim = c(0, 1000),ylim = c(0, 0.000001), xlab = "lot_density(units)", main = "") 
 
 ##nitro ==================================================================================================================================
 nitro.im <- as.im(habitat.rr$nitro)
@@ -573,3 +572,45 @@ plot(twi.im )
 # What is the nature of the association between koala sight locations and total phosphorous?
 twi.rho <- rhohat(object = dat.ppp, covariate = twi.im)
 plot(twi.rho, xlab = "twi(units)", main = "") 
+
+####### density variables has no relationship.
+
+myfullstack.d <- list.files(path="C:/Users/uqrdissa/ownCloud/Covariates_analysis/Mark_S/raster_syn/warton_data/warton_data_allclimate/density_varProxcy",pattern="\\.tif$",full.names=TRUE)
+myfullstack.d = stack(myfullstack.d)
+plot(myfullstack.d,1)
+names(myfullstack.d)
+# myextent=c(387900, 553100, 6862400, 7113600) 
+myextent=studyarea.shp
+habitat.rr=crop(myfullstack.d, myextent, snap="near")
+##hpop ==================================================================================================================================
+hpop.im <- as.im(habitat.rr$hpop)
+plot(hpop.im )
+
+# What is the nature of the association between koala sight locations and total phosphorous?
+hpop.rho <- rhohat(object = dat.ppp, covariate = hpop.im)
+plot(hpop.rho,xlim=c(3000,7000), xlab = "hpop(units)", main = "") 
+
+##lot ==================================================================================================================================
+lot.im <- as.im(habitat.rr$lot_density)
+plot(lot.im )
+
+# What is the nature of the association between koala sight locations and total phosphorous?
+lot.rho <- rhohat(object = dat.ppp, covariate = lot.im)
+plot(lot.rho, xlab = "lot(units)", main = "") 
+
+
+##roadsM ==================================================================================================================================
+roadsM.im <- as.im(habitat.rr$roads_motor)
+plot(roadsM.im )
+
+# What is the nature of the association between koala sight locations and total phosphorous?
+roadsM.rho <- rhohat(object = dat.ppp, covariate = roadsM.im)
+plot(roadsM.rho, xlab = "roadsM(units)", main = "") 
+
+##roadsM ==================================================================================================================================
+roads_other.im <- as.im(habitat.rr$roads_other)
+plot(roads_other.im )
+
+# What is the nature of the association between koala sight locations and total phosphorous?
+roads_other.rho <- rhohat(object = dat.ppp, covariate = roads_other.im)
+plot(roads_other.rho, xlab = "twi(units)", main = "") 
