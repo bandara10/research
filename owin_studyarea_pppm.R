@@ -40,18 +40,38 @@ plot(pp)
 
 #### step 2select one from grid.
 
-#myfullstack.b <- list.files(path="spatstatmodel",pattern="\\.tif$",full.names=TRUE)
-myfullstack.b <- list.files(pattern="\\.tif$",full.names=TRUE)
+myfullstack.b <- list.files(path="spatstatmodel",pattern="\\.tif$",full.names=TRUE)
+#myfullstack.b <- list.files(pattern="\\.tif$",full.names=TRUE)
 
 myfullstack.b = stack(myfullstack.b)
 names(myfullstack.b)
-#plot(myfullstack.b,1)
+#plot(myfullstack.b)
 # myextent=c(387900, 553100, 6862400, 7113600) 
+studyarea.shp <- readShapePoly("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_syn\\warton_data\\warton_data_allclimate\\ss_area.shp")
+proj4string(studyarea.shp) <- CRS("+init=epsg:28356")
 myextent=studyarea.shp
 habitat.rr=crop(myfullstack.b, myextent, snap="near")
-habitat.rr <- scale(habitat.rr)
+#habitat.rr <- scale(habitat.rr)
 
-#vifstep(habitat.rr, th=10)
+vifstep(habitat.rr, th=10)
+# VIFs of the remained variables -------- 
+#   Variables      VIF
+# 1                            awc 3.926543
+# 2                           clay 2.362773
+# 3                           elev 2.825733
+# 4                         fpcnew 1.503247
+# 5                  habit1decimal 1.171915
+# 6                  habit2decimal 1.162066
+# 7                  habit3decimal 1.075773
+# 8                           hpop 4.073797
+# 9                    lot_density 4.170613
+# 10                         nitro 2.978881
+# 11 Precipitation_of_Driest_Month 2.657214
+# 12     Precipitation_Seasonality 3.712386
+# 13                           sbd 3.201861
+# 14       Temperature_Seasonality 5.820057
+# 15                           tpo 2.627350
+# 16                           twi 1.512787
 # mydata.r <- raster(studyarea.shp)
 # res(mydata.r) <- 1000
 # mydata.r <- extend(mydata.r, extent(mydata.r) + 1000)#extenet should be similar to the selected area not the full dataset
@@ -78,10 +98,9 @@ selected.locations=unique(selected.locations)
 aus.shp <- readShapePoly("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\australia.shp")#AU_Qld_detail_studyarea_outline-MGA56
 proj4string(aus.shp) <- CRS("+init=epsg:4326") 
 aus.shp <- spTransform(aus.shp, crs(studyarea.shp))
-plot(aus.shp)
+#plot(aus.shp)
 
-studyarea.shp <- readShapePoly("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_syn\\warton_data\\warton_data_allclimate\\ss_area.shp")
-proj4string(studyarea.shp) <- CRS("+init=epsg:28356") 
+ 
 
 # detail study area
 
@@ -133,6 +152,7 @@ points(x = selected.locations[,1], y = selected.locations[,2])
 # Make a ppp object:
 dat.ppp <- ppp(x = selected.locations[,1], y = selected.locations[,2], window = dat.w)
 
+# dat.ppp=rescale(dat.ppp, 1000, unitname="km")
 unitname(dat.ppp) <- c("meter","meter")
 plot(dat.ppp, axes = TRUE)
 
@@ -183,11 +203,14 @@ plot(en)
 ee_inhom1 <- envelope(dat.ppp,fun=Kinhom,global = TRUE)
 plot(ee_inhom)
 
-
-
 # Convert rasters into a spatstat image object=================================================================================================================================
 ##Rhohat fpcnew ####
 fpc.im <- as.im(habitat.rr$fpcnew )
+fpc.rho <- rhohat(object = dat.ppp, covariate = fpc.im)
+plot(fpc.rho)
+plot(fpc.rho ,xlim = c(0, 100),ylim = c(0, 6e+10), xlab = "lot_density(units)", main = "") 
+
+
 amt.im <- as.im(habitat.rr$AnnualMeanTemperature)
 apt.im <- as.im(habitat.rr$AnnualPrecipitation)
 mtwm.im <- as.im(habitat.rr$Max_Temperature_of_Warmest_Month)
@@ -200,7 +223,7 @@ clay.im <- as.im(habitat.rr$clay)
 nitro.im  <- as.im(habitat.rr$nitro)
 citydis.im <- as.im(habitat.rr$city_dis)
 sbd.im  <- as.im(habitat.rr$sbd)
-roughness.im <- as.im(habitat.rr$roughness)
+#roughness.im <- as.im(habitat.rr$roughness)
 tpo.im  <- as.im(habitat.rr$tpo)
 twi.im  <- as.im(habitat.rr$twi)
 hpop.im <- as.im(habitat.rr$hpop)
@@ -225,9 +248,7 @@ predList=list(fpc=fpc.im
               ,elev=elev.im 
               ,clay=clay.im 
               ,nitro=nitro.im  
-              ,citydis=citydis.im 
               ,sbd=sbd.im 
-              ,roughness=roughness.im
               ,tpo=tpo.im  
               ,twi=twi.im  
               ,hpop=hpop.im 
@@ -235,20 +256,13 @@ predList=list(fpc=fpc.im
               ,habit3=habit3.im  
               ,habit2=habit2.im  
               ,habit1=habit1.im  
-              ,habitdis2=habitdis2.im 
-              ,roadsM=roadsM.im  
-              ,roadsother=roadsother.im  
-              ,dmwl=dmwl.im 
-              ,dprl=dprl.im 
-      )
+            
+              )
 # Null model:
 (dat.ppm00 <- ppm(dat.ppp, trend = ~ 1)) #,covariates = predList
     diagnose.ppm(dat.ppm00)                                                   
 summary(dat.ppm00)$coefs.SE.CI
 AIC(dat.ppm00) # 3488.409
-
-######dat.ppm01 <- ppm(dat.ppp ~ polynom(elev,mtwm,2),covariates = predList)
-
 
 ###### Extract the quadrature scheme from dat.ppm01:#####
 Qz <- quad.ppm(dat.ppm00, drop = TRUE)
@@ -258,7 +272,7 @@ plot(Qz)
 # This step will drop points within the quadrature scheme that had NA-values.
 
 ####### Saturated model:#### 
-dat.ppm01 <- step(ppm(Qz, trend = ~ citydis
+dat.ppm01 <- step(ppm(Qz, trend = ~ fpc
                       + awc + elev+ nitro+ tpo+ hpop*habit2+habit2+habit3,covariates = predList)) #+ roadsM + roadsother
 # Estimate        S.E.       CI95.lo     CI95.hi Ztest        Zval
 # (Intercept) -17.89636094 0.061275733 -1.801646e+01 -17.7762627   *** -292.062780
@@ -273,9 +287,34 @@ dat.ppm01 <- step(ppm(Qz, trend = ~ citydis
 # habit2        0.16583757 0.022129926  1.224637e-01   0.2092114   ***    7.493815
 # nitro         0.31975717 0.036986334  2.472653e-01   0.3922490   ***    8.645279
 # hpop          0.12275546 0.008701996  1.056999e-01   0.1398111   ***   14.106587
-dat.ppm011 <- step(ppm(Qz, trend = ~ 
-fpc+apt+mtwm+mtcm+pdm+pwm+awc+elev+clay+lot+nitro+citydis+sbd+roughness+
-  tpo+twi+habit3+habit2+habit1+habitdis2+roadsM+roadsother,interaction =  Strauss(2000),covariates = predList)) #+ roadsM 
+
+dat.ppm011 <- ppm(Qz, trend = ~ awc+clay+fpc+habit1+habit2+habit2+hpop+lot+nitro+pdm+tpo+twi,covariates = predList) #+ roadsM
+diagnose.ppm(dat.ppm011)
+
+#drop nitro
+
+dat.ppm012 <- ppm(Qz, trend = ~ awc+clay+fpc+habit1+habit2+habit2+hpop+lot+pdm+tpo+twi,covariates = predList) #+ roadsM
+diagnose.ppm(dat.ppm012)
+AIC(dat.ppm012)
+dat.ppm012=update(dat.ppm012, .~. ,interaction =  Strauss(2000))
+diagnose.ppm(dat.ppm012)
+
+pred012 <- predict(dat.ppm012, type="trend") # ngrids smooth the map.
+pred012=pred012*1E06
+pred012.grid <- as(pred012,"SpatialGridDataFrame")
+
+pred012.r=raster(pred012.grid)
+
+pred012.r=pred012.r*2.526440
+
+plot(pred012.r)
+plot(pp, add=TRUE,cex=.5, pch=1)
+
+writeRaster(pred012.r, "C:/Users/uqrdissa/ownCloud/Covariates_analysis/Mark_S/pred0122.r.tif",overwrite=TRUE)
+
+
+
+
 
 dat.ppm011 <- ppm(Qz, trend = ~ 
 fpc+apt+mtwm+mtcm+awc+elev+lot+clay+nitro+citydis+sbd+roughness+tpo+habit3+habit1+roadsM,interaction =  Strauss(2000),covariates = predList) #+ roadsM 
