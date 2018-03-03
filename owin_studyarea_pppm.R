@@ -32,27 +32,37 @@ myalldata=rbind(mydata, mydata2,mydata3)
 table(myalldata$yearnew)
 
 #myalldata[!duplicated(myalldata$X &myalldata$Y), ]
-all.locations= subset(myalldata,yearnew >2005,select=X:Y) #, select=X:Y REmove xy for ppp density
+all.locations= subset(myalldata,yearnew >1997,select=X:Y) #, select=X:Y REmove xy for ppp density
 all.locations <- unique(all.locations)
 
 pp=SpatialPoints(all.locations)
-plot(pp)
+plot(pp, add=TRUE)
 
-#### step 2select one from grid.
+#### step 2select one from grid.========================================================================================================================
 
 myfullstack.b <- list.files(path="spatstatmodel",pattern="\\.tif$",full.names=TRUE)
-#myfullstack.b <- list.files(pattern="\\.tif$",full.names=TRUE)
-
 myfullstack.b = stack(myfullstack.b)
 names(myfullstack.b)
-#plot(myfullstack.b)
+
 # myextent=c(387900, 553100, 6862400, 7113600) 
 studyarea.shp <- readShapePoly("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\raster_syn\\warton_data\\warton_data_allclimate\\ss_area.shp")
 proj4string(studyarea.shp) <- CRS("+init=epsg:28356")
-myextent=studyarea.shp
-habitat.rr=crop(myfullstack.b, myextent, snap="near")
-#habitat.rr <- scale(habitat.rr)
 
+myextent=c(387900, 553100, 6862400, 7113600)
+#myextent=studyarea.shp
+habitat.rr=crop(myfullstack.b, myextent, snap="near") # use pp
+#habitat.rr <- scale(habitat.rr)
+set.seed(123)
+selected.locations=gridSample(all.locations, habitat.rr, n = 1)# disaggregate a raster factor 4 and get one point.
+selected.locations <- as.data.frame(selected.locations)
+plot(selected.locations)
+ss=SpatialPoints(selected.locations)
+write.csv(selected.locations, "selected.locations.csv")
+
+
+
+
+####
 vifstep(habitat.rr, th=10)
 # VIFs of the remained variables -------- 
 #   Variables      VIF
@@ -75,12 +85,7 @@ vifstep(habitat.rr, th=10)
 # mydata.r <- raster(studyarea.shp)
 # res(mydata.r) <- 1000
 # mydata.r <- extend(mydata.r, extent(mydata.r) + 1000)#extenet should be similar to the selected area not the full dataset
-set.seed(123)
-selected.locations=gridSample(all.locations, habitat.rr, n = 2)# disaggregate a raster factor 4 and get one point.
-selected.locations <- as.data.frame(selected.locations)
-plot(selected.locations)
-ss=SpatialPoints(selected.locations)
-write.csv(selected.locations, "selected.locations.csv")
+
 
 #########=======================
 ## for marks in ppp density only
@@ -100,9 +105,7 @@ proj4string(aus.shp) <- CRS("+init=epsg:4326")
 aus.shp <- spTransform(aus.shp, crs(studyarea.shp))
 #plot(aus.shp)
 
- 
-
-# detail study area
+ # detail study area
 
 qld.shp <- readShapePoly("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\qld.shp")#AU_Qld_detail_studyarea_outline-MGA56
 proj4string(qld.shp) <- CRS("+init=epsg:4326") 
@@ -111,6 +114,8 @@ qld.shp <- spTransform(qld.shp, crs(studyarea.shp))
 #### selected area for model
 dstudyarea.shp <- readShapePoly("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\AU_Qld_detail_studyarea_outline-MGA56.shp")#
 proj4string(dstudyarea.shp) <- CRS("+init=epsg:28356") 
+
+studyarea.shp <- crop(dstudyarea.shp,myextent)
 
 
 plot(qld.shp, axes = TRUE)
@@ -237,8 +242,8 @@ roadsother.im  <- as.im(habitat.rr$roads_other)
 dmwl.im <- as.im(habitat.rr$distance_motorwayandlink)
 dprl.im <- as.im(habitat.rr$distance_primaryandlink)
 #Poisson point process model =================================================================================================================================
-predList=list(fpc=fpc.im 
-              ,amt=amt.im 
+predList=list(
+              amt=amt.im 
               ,apt=apt.im 
               ,mtwm=mtwm.im 
               ,mtcm=mtcm.im 
@@ -258,7 +263,7 @@ predList=list(fpc=fpc.im
               ,habit1=habit1.im  
             
               )
-# Null model:
+# Null model:fpc=fpc.im 
 (dat.ppm00 <- ppm(dat.ppp, trend = ~ 1)) #,covariates = predList
     diagnose.ppm(dat.ppm00)                                                   
 summary(dat.ppm00)$coefs.SE.CI
@@ -272,7 +277,7 @@ plot(Qz)
 # This step will drop points within the quadrature scheme that had NA-values.
 
 ####### Saturated model:#### 
-dat.ppm01 <- step(ppm(Qz, trend = ~ fpc
+dat.ppm01 <- step(ppm(dat.ppp, trend = ~ fpc
                       + awc + elev+ nitro+ tpo+ hpop*habit2+habit2+habit3,covariates = predList)) #+ roadsM + roadsother
 # Estimate        S.E.       CI95.lo     CI95.hi Ztest        Zval
 # (Intercept) -17.89636094 0.061275733 -1.801646e+01 -17.7762627   *** -292.062780
