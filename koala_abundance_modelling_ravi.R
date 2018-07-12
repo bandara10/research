@@ -26,36 +26,40 @@ load("C://Users//uqrdissa//ownCloud//Covariates_analysis//Mark_S//Data_raw_koala
 mydata3 <- koala_gold_coast[c("X","Y","yearnew")]
 
 myalldata=rbind(mydata, mydata2,mydata3)
-all.locations= subset(myalldata,yearnew >1998, select=X:Y)
+all.locations= subset(myalldata,yearnew >2011, select=X:Y)
 
 
 # Select records based on distance
 
 source("Lib_DistEstimatesToItself.r")## set a minimum distance between koalas
 all.locations$disttoitself = Lib_DistEstimatesToItself(all.locations$X, all.locations$Y)
-select.locations = subset(all.locations, all.locations$disttoitself > 100)
-selected.locations = select.locations[,1:2]
+select.locations = subset(all.locations, all.locations$disttoitself > 350)
+selected.locations = select.locations[,1:2] # selected locations are used again in line 94
 loc=SpatialPoints(selected.locations)
-# plot(loc)
+plot(loc)
 
 
 ######Step 2: load rasters and crop to my extent of interest######
 
-# ######## All climate rasters .
+# ######## All climate rasters . Here  have scaled rasters,
 
 myfullstack.b <- list.files(path="warton_data_allclimate",pattern="\\.tif$",full.names=TRUE)
 myfullstack.b = scale(stack(myfullstack.b))
-#plot(myfullstack.b)
-#myextent<-extent(min(selected.locations$X)-10000,max(selected.locations$X)+10000,min(selected.locations$Y)-100000,max(selected.locations$Y)+100000)
+myfullstack.b = stack(myfullstack.b) # 63 variables # check VIF.
 
+#plot(myfullstack.b)
+#myextent<-extent(min(selected.locations$X)-2000,max(selected.locations$X)+2000
+#,min(selected.locations$Y)-20000, max(selected.locations$Y)+20000)
+#myextent<-extent(min(selected.locations$X)-3000,max(selected.locations$X)+3000,min(selected.locations$Y)-3000,max(selected.locations$Y)+3000)
+home_range <- raster("home_range.tif") # for emanuel models
 myextent=c(387900, 553100, 6862400, 7113600) 
 habitat.rr=crop(myfullstack.b, myextent, snap="near")
 
-habitat.rr<- subset(habitat.rr, c(1,2,15,18,26,34, 41)) # select my variables
+habitat.rr<- subset(habitat.rr, c(1,2,15,18,26,33, 38)) # select my variables
+names(habitat.rr)
+plot(habitat.rr)
 
-#
-
-######Step 3. Create quadrature points and species xy data. Remove NA. Keep xy colomns for preditions and rasterize. ######
+######Step 3. Create quadrature points and species xy data. Remove NA. Keep xy colomns for preditions and rasterize. ###### starting with Warton method.
 
 big.grp <- as.data.frame(habitat.rr, xy=TRUE) # to be used later in Hefley method.
 
@@ -286,6 +290,34 @@ X.des.2$distance_motorwayandlink = min(X.des.2$distance_motorwayandlink)
 X.des.2=as.matrix(X.des.2)  # quadrature points with common level of distance to all locations.
 X.des=as.matrix(X.des)  # quadrature points.
 
+## ENV and distance 
+X.des.ed=X.des ; X.des.ed <- as.matrix(X.des.ed)   #variables together
+
+# get distance cvariates only
+
+X.des.d <- X.des[c(-1,-2,-5,-6,-7)];X.des.d <- as.matrix(X.des.d)
+
+##Env variables only
+X.des.e <- X.des[c(-3,-4)];X.des.e <- as.matrix(X.des.e)
+
+## for bias correction env + min distance
+X.des.bc <- as.matrix(X.des.2)
+
+### New section added /11/07/2018
+
+# #colnames(X.des)[1:7] <- c("amt", "ap","dmw", "dpr","fpc", "mtwm", "mtcm")
+# X.des.df = as.data.frame(X.des)
+# X.des.poly = poly(X.des.df$Annual_Mean_Temperature, X.des.df$Annual_Precipitation, X.des.df$fpcnew
+#                   ,X.des.df$Max_Temperature_of_Warmest_Month, X.des.df$Min_Temperature_of_Coldest_Month,degree=2, raw=TRUE)
+# X.des.poly2 = poly(X.des.df$distance_motorwayandlink, X.des.df$distance_primaryandlink, degree=2, raw=TRUE)
+# X.des.1 = cbind(cbind(X.des.poly,X.des.poly2))
+# 
+# # for bias correction
+# X.des.df.2 = as.data.frame(X.des.2)
+# X.des.poly.2 = poly(X.des.df.2$Annual_Mean_Temperature, X.des.df.2$Annual_Precipitation, X.des.df.2$fpcnew
+#                   ,X.des.df.2$Max_Temperature_of_Warmest_Month, X.des.df.2$Min_Temperature_of_Coldest_Month,degree=2, raw=TRUE)
+# X.des.poly2.2 = poly(X.des.df.2$distance_motorwayandlink, X.des.df.2$distance_primaryandlink, degree=2, raw=TRUE)
+# X.des.2 = cbind(cbind(X.des.poly.2,X.des.poly2.2))
 ###       DWPR     ######===================================
 # QUesiton : how to evaluvate this model? AUC and TSS.
 # 
@@ -293,19 +325,48 @@ X.des=as.matrix(X.des)  # quadrature points.
 p.wt = rep(1.e-6, length(Pres))
 #X.des <- X.des[,-6]
 p.wt[Pres == 0] = 44415/sum(Pres == 0)
-dwpr = glm(Pres/p.wt ~ X.des, family = poisson(), weights = p.wt)
+dwpr.e = glm(Pres/p.wt ~ poly(X.des.e,degree = 2, raw = TRUE ), family = poisson(), weights = p.wt) # X.des is a matrix
 
+
+summary(dwpr)
+hh=stepAIC(dwpr) # add sinificant variables only.
+
+
+#X.des.poly # expand this
+#colnames(X.des.poly)[1] <- 'a'
+ ###=======
+#rename variables
+#colnames(X.des.poly)[3:4] <- c("a", "b","c", "d","e")
+####========
+#dwpr = glm(Pres/p.wt ~ X.des, family = poisson(), weights = p.wt) # X.des
+#dwpr <- stepAIC(dwpr, direction = "backward")
 # check coefficents 
-dwpr$coefficients
+# summary(dwpr)
+# dwpr$anova
+# dwpr$coefficients
 
-dd <- as.data.frame(X.des)
+##### Env only model
+dwpr= glm(Pres/p.wt ~ poly(X.des.e,degree = 2, raw = TRUE ), family = poisson(), weights = p.wt)
+dd <- as.data.frame(X.des.e)
 pred.dwpr = predict(dwpr, newdata=dd, response=TRUE)
 pred.dwpr=logit.prob(pred.dwpr)
 dfull <- as.data.frame(r, xy = TRUE)
 
-xydatan <- Press[c(1,2)]
+xydatan <- Press[c(1,2)] # coordinates
 
-# get coordinates only
+pred.dwpr <- cbind(xydatan, pred.dwpr)
+pred.dwpreg <- rasterFromXYZ(as.data.frame(pred.dwpr)[, c("x", "y", "pred.dwpr")])
+plot(pred.dwpreg,asp=1, main = "dwpr_bias not corrected")
+ 
+
+###### env distance model  ## seperate Env+ distance. not together as one dataframe.
+dwpr = glm(Pres/p.wt ~ poly(X.des.e,degree = 2, raw = TRUE ) + poly(X.des.d,degree = 2, raw = TRUE ), family = poisson(), weights = p.wt)
+dd <- as.data.frame(X.des.ed)
+pred.dwpr = predict(dwpr, newdata=dd, response=TRUE)
+pred.dwpr=logit.prob(pred.dwpr)
+dfull <- as.data.frame(r, xy = TRUE)
+
+xydatan <- Press[c(1,2)] # coordinates
 
 pred.dwpr <- cbind(xydatan, pred.dwpr)
 pred.dwpreg <- rasterFromXYZ(as.data.frame(pred.dwpr)[, c("x", "y", "pred.dwpr")])
@@ -314,16 +375,30 @@ plot(pred.dwpreg,asp=1, main = "dwpr_bias not corrected")
 # plot locations over the map
 plot(selected.loc, add=TRUE)
 
+###### env distance model  together as one dataframe.
+dwpr = glm(Pres/p.wt ~ poly(X.des.en,degree = 2, raw = TRUE ) , family = poisson(), weights = p.wt)
+dd <- as.data.frame(X.des.ed)
+pred.dwpr = predict(dwpr, newdata=dd, response=TRUE)
+pred.dwpr=logit.prob(pred.dwpr)
+dfull <- as.data.frame(r, xy = TRUE)
+
+xydatan <- Press[c(1,2)] # coordinates
+
+pred.dwpr <- cbind(xydatan, pred.dwpr)
+pred.dwpreg <- rasterFromXYZ(as.data.frame(pred.dwpr)[, c("x", "y", "pred.dwpr")])
+plot(pred.dwpreg,asp=1, main = "dwpr_bias not corrected")
+
 # bias correction map
 # for bias correction new data set`s distance variables are set to a common level as in ppmlasso method.`
 # X.de.2 has this common level.
-# dd2 is the data set for bias correction by setting distance to minimum valuve of distance.
-dd2=dd
-dd2$distance_primaryandlink = min(dd$distance_primaryandlink) 
-dd2$distance_motorwayandlink = min(dd$distance_motorwayandlink)
+# # dd2 is the data set for bias correction by setting distance to minimum valuve of distance.
+# dd2=dd
+# dd2$distance_primaryandlink = min(dd$distance_primaryandlink) 
+# dd2$distance_motorwayandlink = min(dd$distance_motorwayandlink)
+dd2 <- as.data.frame(X.des.bc)
 
-
-pred.dwpr.2 = predict(dwpr, newdata=dd2) # bias corrected check distance variables in  dd2 dataset.
+pred.dwpr.2 = predict(dwpr, newdata=dd2,response=TRUE) # bias corrected check distance variables in  dd2 dataset.
+pred.dwpr.2=logit.prob(pred.dwpr.2)
 
 pred.dwpr.2 <- cbind(xydatan, pred.dwpr.2)
 pred.dwpreg.2 <- rasterFromXYZ(as.data.frame(pred.dwpr.2)[, c("x", "y", "pred.dwpr.2")])
@@ -697,7 +772,7 @@ s.occupancy <- scale(d,scale=TRUE,center = TRUE)
 plot(s.occupancy)
 
 
-w.files=c("distance_primaryandlink.tif", "distance_motorwayandlink.tif") 
+w.files=c("distance_primaryandlink.tif", "roughness.tif") 
 
 dd <- stack(w.files)
 
