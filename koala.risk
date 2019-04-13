@@ -1,0 +1,204 @@
+library(raster); library(rgdal)
+
+# Study area --------------------------------------------------------------
+
+Study.area.shp <- readOGR("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\paper.risk\\viv_koala_data_correctcoordinates_Suburb_centroYEs.shp")
+crs(Study.area.shp) <- NA
+proj4string(Study.area.shp) <-  CRS("+init=epsg:4326") # project to WGS84
+Study.area.shp <- spTransform(Study.area.shp, CRS("+init=epsg:28356")) # trasform
+
+plot(Study.area.shp)
+names(Study.area.shp)
+#Study.area.shp@data$A
+# cases data --------------------------------------------------------------
+
+# cases.shp <- readOGR("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\paper.risk\\koala_cases.shp")
+ 
+cases.shp  <- readOGR("C:\\Users\\uqrdissa\\ownCloud\\Covariates_analysis\\Mark_S\\paper.risk\\koala_cases_removed_outcases.shp")
+# d <- cbind(a@data$X,a@data$Y) # clearly  show cases alog roads
+# plot(d)
+names(cases.shp )
+cases.select.shp <- cases.shp[,-(1:12)]
+names(cases.select.shp)
+
+plot(cases.select.shp,add=TRUE)
+ 
+# 1. spatial join to get suburb names from study area shp-------------
+library(spatialEco)
+library(sp)
+# spatialEco package returns a SpatialPointsDataFrame object of the points
+# that intersect an sp polygon object and optionally adds the polygon 
+# attributes
+
+pts.poly <- point.in.poly(cases.select.shp,Study.area.shp) # now case data have suburb names of studyarea.shp # see colomn A
+names(pts.poly)
+head(pts.poly@data)
+
+# Unique ID 
+
+pts.poly @data$poly.ids <- 1:nrow(pts.poly ) 
+
+
+# subset  case catagory.
+# 
+# select only followung conditions only 
+# Chlamydia like signs_senesence-CF
+# Chlamydia like signs_Trauma animal attack_wasting-CGK
+# Chlamydia like signs_Trauma motor vehicle_wasting CHK
+# Chlamydia like signs_wasting-CK
+# Chlamydia like signs-C
+# Trauma animal attack-G
+# Trauma motor vehicle- H
+# Trauma other causes -I
+# Undetermined -J
+
+table(pts.poly@data$Newfatecod)
+
+# select vehicale accidents
+
+trauma.vehi <- subset(pts.poly,pts.poly@data$Newfatecod==2)
+
+plot(trauma.vehi)
+# select redland only
+
+trauma.vehi.red <- subset(pts.poly,pts.poly@data$ADMIN2=="REDLAND CITY")
+
+plot(trauma.vehi.red)
+
+# number of catagory 2 points in polygons.  
+
+points.LGA <- tapply(pts.poly@data$ADMIN2, pts.poly@data$ADMIN2, FUN=length)
+head(points.LGA)
+# mean 
+# points.LGA <- tapply(pts.poly@data$ADMIN2, pts.poly@data$ADMIN2, FUN=mean)
+
+
+# 2. spatial join to get polygons and counts --------------------------------
+#http://ryanruthart.com/using-r-to-perform-a-spatial-join-and-aggregate-data/
+#cases.select.shp,Study.area.shp
+# set crs same
+crs(cases.select.shp) <- NA
+proj4string(cases.select.shp) <-  CRS("+init=epsg:28356") # project to WGS84
+
+# Set a unique identifier for both of the data frames
+
+a1997  <- cases.select.shp[cases.select.shp$yearnew ==1997,]
+a1998  <- cases.select.shp[cases.select.shp$yearnew ==1998,]
+a1999  <- cases.select.shp[cases.select.shp$yearnew ==1999,]
+a2000  <- cases.select.shp[cases.select.shp$yearnew ==2000,]
+
+a1997.2000 <- rbind(a1997,a1998,a1999,a2000)
+
+a2001  <- cases.select.shp[cases.select.shp$yearnew ==2001,]
+a2002  <- cases.select.shp[cases.select.shp$yearnew ==2002,]
+a2003  <- cases.select.shp[cases.select.shp$yearnew ==2003,]
+a2004  <- cases.select.shp[cases.select.shp$yearnew ==2004,]
+
+a2001.2004 <- rbind(a2001,a2002,a2003,a2004)
+
+a2005  <- cases.select.shp[cases.select.shp$yearnew ==2005,]
+a2006  <- cases.select.shp[cases.select.shp$yearnew ==2006,]
+a2007  <- cases.select.shp[cases.select.shp$yearnew ==2007,]
+a2008  <- cases.select.shp[cases.select.shp$yearnew ==2008,]
+
+a2005.2008 <- rbind(a2005,a2006,a2007,a2008)
+
+a2009  <- cases.select.shp[cases.select.shp$yearnew ==2009,]
+a2010  <- cases.select.shp[cases.select.shp$yearnew ==2010,]
+a2011  <- cases.select.shp[cases.select.shp$yearnew ==2011,]
+a2012 <- cases.select.shp[cases.select.shp$yearnew ==2012,]
+a2013 <- cases.select.shp[cases.select.shp$yearnew ==2013,]
+
+a2009.2013 <- rbind(a2009,a2010,a2011,a2012,a2013)
+
+names(a1997.2000) # use this to get counts of cases for period in study area.
+# further catagorise to causes.
+# For clorapth maps 
+library(dplyr)
+plot(a1997.2000)
+cases.select.shp=a2009.2013
+
+Study.area.shp@data <- mutate(Study.area.shp@data, id_grid = as.numeric(rownames(Study.area.shp@data)))
+
+cases.select.shp@data <- mutate(cases.select.shp@data, id_bus = as.numeric(rownames(cases.select.shp@data)))
+
+head(cases.select.shp)
+# library(dplyr)
+# library(rgdal) 
+# The cases get the value of the grid they are on top of
+case.study <- over(cases.select.shp, Study.area.shp)
+
+# the order didn't change so re add id_bus to the new table
+case.study <- mutate(case.study, id_bus = as.numeric(rownames(case.study)))
+
+#Now join each original business to its grid location
+case.study <- left_join(cases.select.shp@data, case.study, by = c("id_bus" = "id_bus"))
+
+## Now we can aggregate the data
+case.study.a <- case.study %>% group_by(id_grid) %>%
+  summarise(total.cases = n()) %>% arrange(id_grid) 
+head(case.study.a)
+## Now you want to join it back to the grid data for mapping
+# we are joining it straight to the missGrid spatial data frame
+Study.area.shp@data <- left_join(Study.area.shp@data, case.study.a, by = c("id_grid" = "id_grid"))
+
+head(Study.area.shp)
+
+plot(Study.area.shp)
+
+
+# Dog data preperation at suburb level based on hpop ----------------------
+
+
+setwd("C:/Users/uqrdissa/ownCloud/Covariates_analysis/Mark_S/paper.risk")
+
+list.files()
+r <- raster("POP_apg_20111_Clip1.tif")
+
+#reporject
+r.r <- projectRaster(from = r, crs = CRS("+init=epsg:28356"))
+
+#import study area
+shp <- readOGR("studyarea56.shp")
+
+plot(r.r)
+
+rr <- mask(r.r,shp)
+plot(rr)
+
+#https://stackoverflow.com/questions/22333473/how-do-i-extract-raster-values-from-polygon-data-then-join-into-spatial-data-fra
+
+ra <- extract(rr,Study.area.shp, fun=mean,sp = TRUE) # sp = TRUE |as shape file
+plot(ra)
+
+plot(ra, col=ra$POP_apg_20111_Clip1)
+
+head(ra)
+raa <- ra
+
+
+
+
+
+
+#-----------------
+#http://www.nickeubank.com/wp-content/uploads/2015/10/RGIS3_MakingMaps_part1_mappingVectorData.html
+library(sp)
+
+
+spplot(ra, "POP_apg_20111_Clip1", col = "transparent")
+
+library(RColorBrewer)
+display.brewer.all()
+
+my.palette <- brewer.pal(n = 7, name = "OrRd")
+spplot(ra, "POP_apg_20111_Clip1", col.regions = my.palette, cuts = 6, col = "transparent")
+
+
+library(classInt)
+
+breaks.qt <- classIntervals(ra$POP_apg_20111_Clip1, n = 10, style = "quantile", intervalClosure = "right")
+
+spplot(ra, "POP_apg_20111_Clip1", col = "transparent", col.regions = my.palette, 
+       at = breaks.qt$brks,lty = 1, lwd = 0.2)
+
